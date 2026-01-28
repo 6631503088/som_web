@@ -1,0 +1,3 @@
+<template>
+    kpi text
+</template>
