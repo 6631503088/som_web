@@ -235,7 +235,7 @@ definePageMeta({
 })
 
 // Configuration for this program
-const programName = 'Hospitality Industry Management'
+const programName = 'Hospitality Management'
 
 const searchQuery = ref('')
 const selectedYear = ref('2026')

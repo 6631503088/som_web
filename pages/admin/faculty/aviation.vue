@@ -235,7 +235,7 @@ definePageMeta({
 })
 
 // Configuration for this program
-const programName = 'Aviation Business Management'
+const programName = 'Aviation Management'
 
 const searchQuery = ref('')
 const selectedYear = ref('2026')

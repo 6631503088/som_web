@@ -235,7 +235,7 @@ definePageMeta({
 })
 
 // Configuration for this program
-const programName = "Dean's Office"
+const programName = 'Dean Office'
 
 const searchQuery = ref('')
 const selectedYear = ref('2026')

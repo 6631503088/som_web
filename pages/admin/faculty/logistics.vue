@@ -235,7 +235,7 @@ definePageMeta({
 })
 
 // Configuration for this program
-const programName = 'Logistics and Supply Chain Management'
+const programName = 'Logistics Management'
 
 const searchQuery = ref('')
 const selectedYear = ref('2026')

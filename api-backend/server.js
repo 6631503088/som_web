@@ -112,7 +112,7 @@ app.get('/api/lecturer/profile/:staffCode', verifyToken, staffAccessCheck, async
     
     // Fetch lecturer profile from database
     const [rows] = await pool.query(
-      'SELECT staff_code, staff_name, phone, location, program, position FROM lecturer_profiles WHERE staff_code = ?',
+      'SELECT staff_code, staff_name, email, phone, location, program, position FROM lecturer_profiles WHERE staff_code = ?',
       [staffCode]
     );
 
@@ -120,6 +120,8 @@ app.get('/api/lecturer/profile/:staffCode', verifyToken, staffAccessCheck, async
       // Return default profile structure if not found
       return res.json({
         staffCode,
+        staffName: 'Unknown',
+        email: 'n/a',
         phone: 'n/a',
         location: 'n/a',
         program: 'n/a',
@@ -130,6 +132,8 @@ app.get('/api/lecturer/profile/:staffCode', verifyToken, staffAccessCheck, async
     const profile = rows[0];
     res.json({
       staffCode: profile.staff_code,
+      staffName: profile.staff_name || 'Unknown',
+      email: profile.email || 'n/a',
       phone: profile.phone || 'n/a',
       location: profile.location || 'n/a',
       program: profile.program || 'n/a',

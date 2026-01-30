@@ -272,48 +272,50 @@ const fetchProfileData = async () => {
   }
 
   try {
-    // Fetch lecturer profile
+    // Fetch lecturer profile - backend returns data directly without success wrapper
     const profileData = await get(`/api/lecturer/profile/${encodeURIComponent(staffCode)}`);
     
-    if (profileData.success && profileData.data) {
-      const data = profileData.data;
-      profile.value.staffCode = data.staff_code || staffCode;
-      profile.value.fullName = data.staff_name || '';
-      profile.value.email = data.email || '';
-      profile.value.phone = data.phone || '';
-      profile.value.department = data.program || '';
-      profile.value.position = data.position || 'Lecturer';
-      profile.value.office = data.location || '';
+    if (profileData && (profileData.staffCode || profileData.staff_code)) {
+      profile.value.staffCode = profileData.staffCode || profileData.staff_code || staffCode;
+      profile.value.fullName = profileData.staffName || profileData.staff_name || '';
+      profile.value.email = profileData.email || '';
+      profile.value.phone = profileData.phone || '';
+      profile.value.department = profileData.program || '';
+      profile.value.position = profileData.position || 'Lecturer';
+      profile.value.office = profileData.location || '';
       
-      // Fetch education data
+      // Fetch education data - backend returns array directly
       try {
         const educationData = await get(`/api/lecturer/education/${encodeURIComponent(staffCode)}`);
-        if (educationData.success && educationData.data) {
-          profile.value.education = educationData.data.map((edu: any) => ({
+        if (Array.isArray(educationData)) {
+          profile.value.education = educationData.map((edu: any) => ({
             degree: edu.degree || '',
-            university: edu.university || '',
-            year: edu.graduation_year || ''
+            university: edu.institution || edu.university || '',
+            year: edu.year || edu.graduation_year || ''
           }));
         }
       } catch (e) {
         console.log('No education data available');
       }
 
-      // Fetch research areas
+      // Fetch research areas - backend returns array of strings directly
       try {
         const researchData = await get(`/api/lecturer/research/${encodeURIComponent(staffCode)}`);
-        if (researchData.success && researchData.data) {
-          profile.value.researchAreas = researchData.data.map((r: any) => r.research_area || r.area_name || '');
+        if (Array.isArray(researchData)) {
+          profile.value.researchAreas = researchData.map((r: any) => 
+            typeof r === 'string' ? r : (r.research_area || r.area_name || '')
+          );
         }
       } catch (e) {
         console.log('No research data available');
       }
 
-      // Fetch publications
+      // Fetch publications - backend returns { success: true, data: [...] }
       try {
         const publicationsData = await get(`/api/lecturer/publications/${encodeURIComponent(staffCode)}`);
-        if (publicationsData.success && publicationsData.data) {
-          profile.value.publications = publicationsData.data.map((pub: any) => ({
+        const pubArray = publicationsData.data || publicationsData;
+        if (Array.isArray(pubArray)) {
+          profile.value.publications = pubArray.map((pub: any) => ({
             title: pub.title || pub.publication_title || '',
             year: pub.year || pub.publication_year || '',
             link: pub.link || pub.url || ''
