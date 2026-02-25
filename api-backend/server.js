@@ -551,10 +551,12 @@ app.get('/api/research-publications/:staffCode', verifyToken, staffAccessCheck, 
 });
 
 
-// Staff Code Lookup endpoint - Get staff code from lecturer_profiles by email (Protected)
-app.post('/api/lecturer/lookup-staffcode', verifyToken, async (req, res) => {
+// Staff Code Lookup endpoint - Get staff code from lecturer_profiles by email (Public for KPI data lookup)
+app.post('/api/lecturer/lookup-staffcode', async (req, res) => {
   try {
     const { email } = req.body;
+    
+    console.log('[lookup-staffcode] Looking up staff code for email:', email);
     
     if (!email) {
       return res.status(400).json({
@@ -573,6 +575,7 @@ app.post('/api/lecturer/lookup-staffcode', verifyToken, async (req, res) => {
     );
     
     if (rows.length === 0) {
+      console.log('[lookup-staffcode] Staff not found for email:', email);
       return res.status(404).json({
         success: false,
         message: 'Staff member not found for this email'
@@ -580,6 +583,7 @@ app.post('/api/lecturer/lookup-staffcode', verifyToken, async (req, res) => {
     }
     
     const staff = rows[0];
+    console.log('[lookup-staffcode] Found staff code:', staff.staff_code, 'for email:', email);
     res.json({
       success: true,
       staffCode: staff.staff_code,
@@ -1612,6 +1616,75 @@ app.get('/api/mfu/:endpoint', verifyToken, requireAdmin, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('MFU API proxy error:', error);
+    res.status(500).json({ error: 'Failed to fetch from MFU API', message: error.message });
+  }
+});
+
+// ============================================
+// LECTURER MFU API PROXY (own data only)
+// ============================================
+
+// Proxy endpoint for MFU API - lecturer's own get_Percentage
+app.get('/api/lecturer/mfu/get_Percentage', verifyToken, async (req, res) => {
+  try {
+    const email = req.userEmail;
+    const [rows] = await pool.execute(
+      'SELECT staff_code FROM lecturer_profiles WHERE email = ? LIMIT 1',
+      [email]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Staff code not found for your account' });
+    }
+    const staffcode = rows[0].staff_code;
+    console.log(`[lecturer-mfu] get_Percentage for staffcode: ${staffcode} (email: ${email})`);
+    const token = await getMfuToken();
+    const { evaluateid, lang } = req.query;
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'evaluateid': evaluateid || '9',
+      'lang': lang || 'en',
+      'staffcode': staffcode
+    };
+    const response = await fetch(`${MFU_API_BASE}/get_Percentage`, { method: 'GET', headers });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Lecturer MFU API proxy error:', error);
+    res.status(500).json({ error: 'Failed to fetch from MFU API', message: error.message });
+  }
+});
+
+// Proxy endpoint for MFU API - generic lecturer endpoint (own data only)
+app.get('/api/lecturer/mfu/:endpoint', verifyToken, async (req, res) => {
+  try {
+    const email = req.userEmail;
+    const [rows] = await pool.execute(
+      'SELECT staff_code FROM lecturer_profiles WHERE email = ? LIMIT 1',
+      [email]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Staff code not found for your account' });
+    }
+    const staffcode = rows[0].staff_code;
+    const token = await getMfuToken();
+    const { endpoint } = req.params;
+    const { evaluateid, lang } = req.query;
+    console.log(`[lecturer-mfu] ${endpoint} for staffcode: ${staffcode}`);
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'evaluateid': evaluateid || '9',
+      'lang': lang || 'en',
+      'staffcode': staffcode
+    };
+    const response = await fetch(`${MFU_API_BASE}/${endpoint}`, { method: 'GET', headers });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Lecturer MFU API proxy error:', error);
     res.status(500).json({ error: 'Failed to fetch from MFU API', message: error.message });
   }
 });

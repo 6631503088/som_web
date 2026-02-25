@@ -124,6 +124,38 @@ INSERT INTO `lecturer_education` VALUES (1,'6431703502','Ph.D. in Accounting','C
 UNLOCK TABLES;
 
 --
+-- Table structure for table `programs`
+--
+
+DROP TABLE IF EXISTS `programs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `programs` (
+  `program_id` int NOT NULL AUTO_INCREMENT,
+  `program_code` varchar(20) NOT NULL,
+  `program_name` varchar(255) NOT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`program_id`),
+  UNIQUE KEY `program_code` (`program_code`),
+  UNIQUE KEY `program_name` (`program_name`),
+  KEY `idx_program_code` (`program_code`),
+  KEY `idx_is_active` (`is_active`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `programs`
+--
+
+LOCK TABLES `programs` WRITE;
+/*!40000 ALTER TABLE `programs` DISABLE KEYS */;
+INSERT INTO `programs` VALUES (1,'ACC','Accounting',1,NOW(),NOW()),(2,'BA','Business Administration',1,NOW(),NOW()),(3,'ECO','Economics',1,NOW(),NOW()),(4,'TRM','Tourism Management',1,NOW(),NOW()),(5,'AVI','Aviation Management',1,NOW(),NOW()),(6,'HRM','Hospitality Management',1,NOW(),NOW()),(7,'LOG','Logistics Management',1,NOW(),NOW()),(8,'DEAN','Dean Office',1,NOW(),NOW());
+/*!40000 ALTER TABLE `programs` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `lecturer_profiles`
 --
 
@@ -136,10 +168,13 @@ CREATE TABLE `lecturer_profiles` (
   `phone` varchar(20) DEFAULT NULL,
   `location` varchar(100) DEFAULT NULL,
   `program` varchar(100) DEFAULT NULL,
+  `program_id` int DEFAULT NULL,
   `position` varchar(50) DEFAULT NULL,
   `email` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`staff_code`),
-  KEY `idx_lecturer_profiles_email` (`email`)
+  KEY `idx_lecturer_profiles_email` (`email`),
+  KEY `idx_program_id` (`program_id`),
+  CONSTRAINT `fk_lecturer_program` FOREIGN KEY (`program_id`) REFERENCES `programs` (`program_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

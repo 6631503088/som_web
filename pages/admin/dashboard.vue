@@ -506,22 +506,24 @@ const selectYear = (year) => {
   isDropdownOpen.value = false;
 };
 
+// Slug mapping for URL-friendly routes
+const codeToSlugMap = {
+  ACC: 'accounting',
+  AVI: 'aviation',
+  BA: 'business',
+  ECO: 'economics',
+  HRM: 'hospitality',
+  TRM: 'tourism',
+  LOG: 'logistics',
+  DEAN: 'dean'
+};
+
 const navigateToFaculty = (department) => {
   if (!department.is_active) return;
   
-  const pathMap = {
-    ACC: 'accounting',
-    AVI: 'aviation',
-    BA: 'business',
-    ECO: 'economics',
-    HRM: 'hospitality',
-    TRM: 'tourism',
-    LOG: 'logistics',
-    DEAN: 'dean'
-  };
-  
-  const path = pathMap[department.program_code] || department.program_code.toLowerCase();
-  navigateTo({ path: '/admin/faculty/' + path });
+  // Use mapped slug or fall back to lowercase program code
+  const slug = codeToSlugMap[department.program_code] || department.program_code.toLowerCase();
+  navigateTo({ path: `/admin/faculty/${slug}` });
 };
 
 const handleClickOutside = (event) => {

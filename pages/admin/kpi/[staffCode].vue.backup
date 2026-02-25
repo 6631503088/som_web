@@ -1,0 +1,1105 @@
+<template>
+  <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <!-- Back Button & Header -->
+    <div class="mb-6">
+      <NuxtLink 
+        to="/admin/kpi" 
+        class="inline-flex items-center text-[#4697b9] hover:text-[#005F99] transition-colors mb-4"
+      >
+        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to KPI Overview
+      </NuxtLink>
+      
+      <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">{{ lecturerData?.staffName || 'Loading...' }}</h1>
+          <p class="text-gray-500">Staff Code: {{ staffCode }}</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <!-- Evaluation Period Selector -->
+          <div class="flex items-center gap-2 bg-white rounded-xl shadow-lg px-4 py-2 border border-gray-100">
+            <svg class="w-5 h-5 text-[#4697b9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <select
+              v-model="selectedEvaluationPeriod"
+              @change="onEvaluationPeriodChange"
+              class="appearance-none bg-transparent border-0 text-sm font-medium text-gray-700 focus:outline-none cursor-pointer pr-8"
+              :disabled="isLoadingPeriods"
+            >
+              <option v-if="isLoadingPeriods" disabled>Loading...</option>
+              <option 
+                v-for="period in evaluationPeriods" 
+                :key="period.evaluateid" 
+                :value="period.evaluateid"
+              >
+                Round {{ period.evaluatename }}
+              </option>
+            </select>
+          </div>
+          <!-- Performance Badge -->
+          <div v-if="lecturerData">
+            <span 
+              class="px-4 py-2 text-lg font-bold rounded-full"
+              :class="getPerformanceBadgeClass(lecturerData.performanceLevel)"
+            >
+              {{ lecturerData.performanceLevel }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="flex justify-center items-center py-20">
+      <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-[#4697b9] border-t-transparent mb-4"></div>
+        <p class="text-gray-600">Loading KPI data...</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+      <svg class="mx-auto h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <p class="text-red-600">{{ error }}</p>
+      <button @click="fetchData" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+        Retry
+      </button>
+    </div>
+
+    <!-- Main Content -->
+    <div v-else-if="lecturerData" class="space-y-6">
+      <!-- Score Overview Cards -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Total Score Card with Pie Chart -->
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Overall Performance</h3>
+          <div class="flex items-center justify-center">
+            <div class="relative w-48 h-48">
+              <canvas ref="overallPieChart"></canvas>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="text-center">
+                  <span class="text-3xl font-bold text-gray-900">{{ lecturerData.overallPerformance.totalScore.toFixed(1) }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div class="flex items-center">
+              <span class="w-3 h-3 rounded-full bg-[#4697b9] mr-2"></span>
+              <span>Academic: {{ lecturerData.overallPerformance.academicPerformance.toFixed(1) }}%</span>
+            </div>
+            <div class="flex items-center">
+              <span class="w-3 h-3 rounded-full bg-[#00BFFF] mr-2"></span>
+              <span>Behavior: {{ lecturerData.overallPerformance.behavior.toFixed(1) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Domain Scores Pie Chart -->
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Academic Score Distribution</h3>
+          <div class="flex items-center justify-center">
+            <div class="w-48 h-48">
+              <canvas ref="domainPieChart"></canvas>
+            </div>
+          </div>
+          <div class="mt-4 space-y-1 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <span class="w-2 h-2 rounded-full bg-[#005F99] mr-1"></span>
+                <span>Teaching</span>
+              </div>
+              <span class="font-medium">{{ domainScores.teaching.toFixed(1) }}%</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <span class="w-2 h-2 rounded-full bg-[#00BFFF] mr-1"></span>
+                <span>Research</span>
+              </div>
+              <span class="font-medium">{{ domainScores.research.toFixed(1) }}%</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <span class="w-2 h-2 rounded-full bg-[#7FD6D6] mr-1"></span>
+                <span>Academic Service</span>
+              </div>
+              <span class="font-medium">{{ domainScores.academicService.toFixed(1) }}%</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <span class="w-2 h-2 rounded-full bg-[#7c3aed] mr-1"></span>
+                <span>Administration</span>
+              </div>
+              <span class="font-medium">{{ domainScores.administration.toFixed(1) }}%</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <span class="w-2 h-2 rounded-full bg-[#C084FC] mr-1"></span>
+                <span>Arts & Culture</span>
+              </div>
+              <span class="font-medium">{{ domainScores.artsCulture.toFixed(1) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Activity Summary</h3>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div class="flex items-center">
+                <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <span class="text-gray-700">Courses</span>
+              </div>
+              <span class="text-xl font-bold text-blue-600">{{ teachingItemCount }}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-cyan-50 rounded-lg">
+              <div class="flex items-center">
+                <svg class="w-5 h-5 text-cyan-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <span class="text-gray-700">Research Items</span>
+              </div>
+              <span class="text-xl font-bold text-cyan-600">{{ researchItemCount }}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-teal-50 rounded-lg">
+              <div class="flex items-center">
+                <svg class="w-5 h-5 text-teal-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span class="text-gray-700">Academic Service</span>
+              </div>
+              <span class="text-xl font-bold text-teal-600">{{ academicServiceItemCount }}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+              <div class="flex items-center">
+                <svg class="w-5 h-5 text-purple-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span class="text-gray-700">Committees</span>
+              </div>
+              <span class="text-xl font-bold text-purple-600">{{ administrationItemCount }}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-pink-50 rounded-lg">
+              <div class="flex items-center">
+                <svg class="w-5 h-5 text-pink-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <span class="text-gray-700">Arts & Culture</span>
+              </div>
+              <span class="text-xl font-bold text-pink-600">{{ artsCultureItemCount }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Domain Sections -->
+      <div class="space-y-4">
+        <h2 class="text-xl font-bold text-gray-900">Detailed Performance Breakdown</h2>
+        
+        <!-- Domain 1: Teaching Performance -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div 
+            @click="toggleDomain(1)"
+            class="p-4 border-b border-gray-200 bg-gradient-to-r from-[#005F99] to-[#00BFFF] cursor-pointer hover:opacity-95 transition-opacity flex items-center justify-between"
+          >
+            <div class="flex items-center gap-3">
+              <h3 class="text-lg font-semibold text-white">Domain 1: Teaching Performance</h3>
+              <span class="bg-white/20 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                {{ teachingItemCount }} {{ teachingItemCount === 1 ? 'course' : 'courses' }}
+              </span>
+            </div>
+            <svg 
+              class="w-5 h-5 text-white transition-transform duration-300" 
+              :class="{ 'rotate-180': isDomainExpanded(1) }"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+          <div 
+            class="overflow-hidden transition-all duration-300"
+            :class="isDomainExpanded(1) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'"
+          >
+            <div class="p-4">
+              <!-- No Data Message -->
+              <div v-if="teachingItemCount === 0" class="text-center py-8 text-gray-500">
+                <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <p class="font-medium">No teaching data available</p>
+                <p class="text-sm">No courses found for this evaluation period</p>
+              </div>
+              <!-- Undergraduate Courses -->
+              <div v-if="groupedUndergraduateCourses.length > 0" class="mb-6">
+                <h4 class="font-medium text-gray-800 mb-3 flex items-center">
+                  <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded mr-2">{{ groupedUndergraduateCourses.length }}</span>
+                  Undergraduate Courses
+                </h4>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-[#046e93]">
+                      <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">No.</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">Course Code</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">Course Name</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase">Sections</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase">Total Students</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="(course, idx) in groupedUndergraduateCourses" :key="idx" :class="idx % 2 === 1 ? 'bg-[#E8F4FC]' : ''">
+                        <td class="px-3 py-2 text-sm text-gray-600">{{ idx + 1 }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 font-mono">{{ course.coursecode }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-900">{{ course.coursename }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 text-center">{{ course.sections.join(', ') }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 font-medium text-center">{{ course.totalStudents }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <!-- Graduate Courses -->
+              <div v-if="groupedGraduateCourses.length > 0">
+                <h4 class="font-medium text-gray-800 mb-3 flex items-center">
+                  <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded mr-2">{{ groupedGraduateCourses.length }}</span>
+                  Graduate Courses
+                </h4>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-[#046e93]">
+                      <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">No.</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">Course Code</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">Course Name</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase">Sections</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase">Total Students</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="(course, idx) in groupedGraduateCourses" :key="idx" :class="idx % 2 === 1 ? 'bg-[#E8F4FC]' : ''">
+                        <td class="px-3 py-2 text-sm text-gray-600">{{ idx + 1 }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 font-mono">{{ course.coursecode }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-900">{{ course.coursename }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 text-center">{{ course.sections.join(', ') }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 font-medium text-center">{{ course.totalStudents }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Domain 2: Research Performance -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div 
+            @click="toggleDomain(2)"
+            class="p-4 border-b border-gray-200 bg-gradient-to-r from-[#00BFFF] to-[#7FD6D6] cursor-pointer hover:opacity-95 transition-opacity flex items-center justify-between"
+          >
+            <div class="flex items-center gap-3">
+              <h3 class="text-lg font-semibold text-white">Domain 2: Research Performance</h3>
+              <span class="bg-white/20 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                {{ researchItemCount }} {{ researchItemCount === 1 ? 'item' : 'items' }}
+              </span>
+            </div>
+            <svg 
+              class="w-5 h-5 text-white transition-transform duration-300" 
+              :class="{ 'rotate-180': isDomainExpanded(2) }"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+          <div 
+            class="overflow-hidden transition-all duration-300"
+            :class="isDomainExpanded(2) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'"
+          >
+            <div class="p-4">
+              <!-- No Data Message -->
+              <div v-if="researchItemCount === 0" class="text-center py-8 text-gray-500">
+                <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <p class="font-medium">No research data available</p>
+                <p class="text-sm">No research items found for this evaluation period</p>
+              </div>
+              <!-- Research Studies -->
+              <div v-if="detailedData?.research?.studies?.length > 0" class="mb-6">
+                <h4 class="font-medium text-gray-800 mb-3 flex items-center">
+                  <span class="bg-teal-100 text-teal-800 text-xs font-medium px-2 py-1 rounded mr-2">{{ detailedData.research.studies.length }}</span>
+                  Research Studies
+                </h4>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-[#046e93]">
+                      <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">No.</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase">Level</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">Research Title</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="(study, idx) in detailedData.research.studies" :key="idx" :class="idx % 2 === 1 ? 'bg-[#E8F4FC]' : ''">
+                        <td class="px-3 py-2 text-sm text-gray-600">{{ idx + 1 }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 text-center">{{ study.level || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-900">{{ study.researchtitle || study.projectname || study.title || '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <!-- Research Publications -->
+              <div v-if="detailedData?.research?.publications?.length > 0">
+                <h4 class="font-medium text-gray-800 mb-3 flex items-center">
+                  <span class="bg-cyan-100 text-cyan-800 text-xs font-medium px-2 py-1 rounded mr-2">{{ detailedData.research.publications.length }}</span>
+                  Research Publications
+                </h4>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-[#046e93]">
+                      <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">No.</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-white uppercase">Level</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-white uppercase">Publication Title</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="(pub, idx) in detailedData.research.publications" :key="idx" :class="idx % 2 === 1 ? 'bg-[#E8F4FC]' : ''">
+                        <td class="px-3 py-2 text-sm text-gray-600">{{ idx + 1 }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 text-center">{{ pub.level || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-900">{{ pub.researchtitle || pub.publicationtitle || pub.title || '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Domain 3: Academic Service -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div 
+            @click="toggleDomain(3)"
+            class="p-4 border-b border-gray-200 bg-gradient-to-r from-[#7FD6D6] to-[#7c3aed] cursor-pointer hover:opacity-95 transition-opacity flex items-center justify-between"
+          >
+            <div class="flex items-center gap-3">
+              <h3 class="text-lg font-semibold text-white">Domain 3: Academic Service</h3>
+              <span class="bg-white/20 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                {{ academicServiceItemCount }} {{ academicServiceItemCount === 1 ? 'activity' : 'activities' }}
+              </span>
+            </div>
+            <svg 
+              class="w-5 h-5 text-white transition-transform duration-300" 
+              :class="{ 'rotate-180': isDomainExpanded(3) }"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+          <div 
+            class="overflow-hidden transition-all duration-300"
+            :class="isDomainExpanded(3) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'"
+          >
+            <div class="p-4">
+              <!-- No Data Message -->
+              <div v-if="academicServiceItemCount === 0" class="text-center py-8 text-gray-500">
+                <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <p class="font-medium">No academic service data available</p>
+                <p class="text-sm">No activities found for this evaluation period</p>
+              </div>
+              <div v-else class="space-y-3">
+                <div v-for="(activity, idx) in detailedData?.academicService?.activities" :key="idx" class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                      <p class="font-medium text-gray-900">{{ activity.projecttitle || activity.title || 'Untitled Activity' }}</p>
+                      <p class="text-sm text-gray-600 mt-1">
+                        <span class="font-medium">Budget:</span> {{ activity.budgetlimit ? activity.budgetlimit.toLocaleString() + ' THB' : 'N/A' }}
+                      </p>
+                    </div>
+                    <span :class="activity.profitable === 0 ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'" class="text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap">
+                      {{ activity.profitable === 0 ? 'Non-revenue' : 'Revenue' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Domain 4: Administration -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div 
+            @click="toggleDomain(4)"
+            class="p-4 border-b border-gray-200 bg-gradient-to-r from-[#7c3aed] to-[#8A8BE6] cursor-pointer hover:opacity-95 transition-opacity flex items-center justify-between"
+          >
+            <div class="flex items-center gap-3">
+              <h3 class="text-lg font-semibold text-white">Domain 4: Administration</h3>
+              <span class="bg-white/20 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                {{ administrationItemCount }} {{ administrationItemCount === 1 ? 'committee' : 'committees' }}
+              </span>
+            </div>
+            <svg 
+              class="w-5 h-5 text-white transition-transform duration-300" 
+              :class="{ 'rotate-180': isDomainExpanded(4) }"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+          <div 
+            class="overflow-hidden transition-all duration-300"
+            :class="isDomainExpanded(4) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'"
+          >
+            <div class="p-4 space-y-4">
+              <!-- No Data Message -->
+              <div v-if="administrationItemCount === 0" class="text-center py-8 text-gray-500">
+                <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <p class="font-medium">No administration data available</p>
+                <p class="text-sm">No committee assignments found for this evaluation period</p>
+              </div>
+              <!-- Curricular Committee -->
+              <div v-if="detailedData?.administration?.curricularCommittee?.length > 0">
+                <h4 class="font-medium text-gray-800 mb-2">Curricular Committee</h4>
+                <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
+                  <li v-for="(comm, idx) in detailedData.administration.curricularCommittee" :key="idx">
+                    {{ comm.nameofcommittee || comm.committeename || comm.name || '-' }}
+                  </li>
+                </ul>
+              </div>
+              
+              <!-- School Committee -->
+              <div v-if="detailedData?.administration?.schoolCommittee?.length > 0">
+                <h4 class="font-medium text-gray-800 mb-2">School Committee</h4>
+                <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
+                  <li v-for="(comm, idx) in detailedData.administration.schoolCommittee" :key="idx">
+                    {{ comm.nameofcommittee || comm.committeename || comm.name || '-' }}
+                  </li>
+                </ul>
+              </div>
+              
+              <!-- University Committee -->
+              <div v-if="detailedData?.administration?.universityCommittee?.length > 0">
+                <h4 class="font-medium text-gray-800 mb-2">University Committee</h4>
+                <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
+                  <li v-for="(comm, idx) in detailedData.administration.universityCommittee" :key="idx">
+                    {{ comm.nameofcommittee || comm.committeename || comm.name || '-' }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Domain 5: Arts & Culture -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div 
+            @click="toggleDomain(5)"
+            class="p-4 border-b border-gray-200 bg-gradient-to-r from-[#8A8BE6] to-[#C084FC] cursor-pointer hover:opacity-95 transition-opacity flex items-center justify-between"
+          >
+            <div class="flex items-center gap-3">
+              <h3 class="text-lg font-semibold text-white">Domain 5: Arts & Culture Conservation</h3>
+              <span class="bg-white/20 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                {{ artsCultureItemCount }} {{ artsCultureItemCount === 1 ? 'activity' : 'activities' }}
+              </span>
+            </div>
+            <svg 
+              class="w-5 h-5 text-white transition-transform duration-300" 
+              :class="{ 'rotate-180': isDomainExpanded(5) }"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+          <div 
+            class="overflow-hidden transition-all duration-300"
+            :class="isDomainExpanded(5) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'"
+          >
+            <div class="p-4 space-y-4">
+              <!-- No Data Message -->
+              <div v-if="artsCultureItemCount === 0" class="text-center py-8 text-gray-500">
+                <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <p class="font-medium">No arts & culture data available</p>
+                <p class="text-sm">No activities found for this evaluation period</p>
+              </div>
+              <!-- Self Development -->
+              <div v-if="detailedData?.artsCulture?.selfDevelopment?.length > 0">
+                <h4 class="font-medium text-gray-800 mb-2">Self Development Activities</h4>
+                <div class="space-y-2">
+                  <div v-for="(activity, idx) in detailedData.artsCulture.selfDevelopment" :key="idx" class="p-3 bg-pink-50 rounded-lg text-sm">
+                    <p class="font-medium text-gray-900">{{ activity.activity || 'Untitled Activity' }}</p>
+                    <p class="text-gray-600 mt-1">{{ activity.typename || '-' }} • {{ activity.venue || '-' }}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- MFU Arranged -->
+              <div v-if="detailedData?.artsCulture?.mfuArranged?.length > 0">
+                <h4 class="font-medium text-gray-800 mb-2">MFU Arranged Activities</h4>
+                <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
+                  <li v-for="(activity, idx) in detailedData.artsCulture.mfuArranged" :key="idx">
+                    {{ activity.projectname || activity.project_name || activity.activity || '-' }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useFirebaseAuth } from '@/composables/useFirebaseAuth';
+import { useKpiCache } from '@/composables/useKpiCache';
+import { useEvaluationPeriods } from '@/composables/useEvaluationPeriods';
+import { type LecturerKpiData } from '@/composables/useAdminKpiApi';
+import Chart from "chart.js/auto";
+import { computed, onMounted, ref, watch, nextTick, onUnmounted } from "vue";
+
+definePageMeta({
+  layout: false
+});
+
+const route = useRoute();
+const router = useRouter();
+const staffCode = computed(() => route.params.staffCode as string);
+
+// Composables
+const { user } = useFirebaseAuth();
+const { cachedKpiData, hasCachedData, initializeFromStorage } = useKpiCache();
+const { 
+  evaluationPeriods, 
+  loading: isLoadingPeriods, 
+  fetchEvaluationPeriods 
+} = useEvaluationPeriods();
+
+// Evaluation period state
+const selectedEvaluationPeriod = ref<number>(9);
+
+// Initialize cache from localStorage on client-side
+if (typeof window !== 'undefined') {
+  initializeFromStorage();
+  console.log('[staffCode] Cache initialized, has data:', cachedKpiData.value?.length || 0);
+}
+
+// State
+const loading = ref(true);
+const error = ref<string | null>(null);
+const lecturerData = ref<LecturerKpiData | null>(null);
+const detailedData = ref<any>(null);
+const expandedDomains = ref<Set<number>>(new Set([1])); // Domain 1 expanded by default
+
+// Chart refs
+const overallPieChart = ref<HTMLCanvasElement | null>(null);
+const domainPieChart = ref<HTMLCanvasElement | null>(null);
+let overallChartInstance: Chart | null = null;
+let domainChartInstance: Chart | null = null;
+
+// Runtime config
+const runtimeConfig = useRuntimeConfig();
+const API_BASE_URL = runtimeConfig.public.apiBaseUrl || 'https://eport.mfu.ac.th/api/master';
+
+// Get backend API base URL
+const getBackendUrl = () => {
+  return runtimeConfig.public.apiBase || 
+         runtimeConfig.public.backendApiUrl ||
+         'https://som.mlbbshop.app';
+};
+
+// Toggle domain expansion
+const toggleDomain = (domainNumber: number) => {
+  const newSet = new Set(expandedDomains.value);
+  if (newSet.has(domainNumber)) {
+    newSet.delete(domainNumber);
+  } else {
+    newSet.add(domainNumber);
+  }
+  expandedDomains.value = newSet;
+};
+
+const isDomainExpanded = (domainNumber: number) => expandedDomains.value.has(domainNumber);
+
+// Computed domain scores - use actual scores, not weights
+const domainScores = computed(() => {
+  if (!lecturerData.value) {
+    return { teaching: 0, research: 0, academicService: 0, administration: 0, artsCulture: 0 };
+  }
+  const scores = lecturerData.value.domainScores || {};
+  return {
+    teaching: scores.domain1 || 0,
+    research: scores.domain2 || 0,
+    academicService: scores.domain3 || 0,
+    administration: scores.domain4 || 0,
+    artsCulture: scores.domain5 || 0
+  };
+});
+
+// Grouped courses
+const groupedUndergraduateCourses = computed(() => {
+  const courses = detailedData.value?.teaching?.undergraduate || [];
+  return groupCoursesByCourseCode(courses);
+});
+
+const groupedGraduateCourses = computed(() => {
+  const courses = detailedData.value?.teaching?.graduate || [];
+  return groupCoursesByCourseCode(courses);
+});
+
+function groupCoursesByCourseCode(courses: any[]) {
+  const grouped: Record<string, { coursecode: string; coursename: string; sections: string[]; totalStudents: number }> = {};
+  
+  courses.forEach(course => {
+    const code = course.coursecode || 'Unknown';
+    if (!grouped[code]) {
+      grouped[code] = {
+        coursecode: code,
+        coursename: course.coursename || '-',
+        sections: [],
+        totalStudents: 0
+      };
+    }
+    if (course.section) {
+      grouped[code].sections.push(String(course.section));
+    }
+    grouped[code].totalStudents += parseInt(course.totalstudent) || 0;
+  });
+  
+  Object.values(grouped).forEach(g => {
+    g.sections.sort((a, b) => parseInt(a) - parseInt(b));
+  });
+  
+  return Object.values(grouped);
+}
+
+// Item counts
+const teachingItemCount = computed(() => groupedUndergraduateCourses.value.length + groupedGraduateCourses.value.length);
+const researchItemCount = computed(() => {
+  const studies = detailedData.value?.research?.studies?.length || 0;
+  const publications = detailedData.value?.research?.publications?.length || 0;
+  return studies + publications;
+});
+const academicServiceItemCount = computed(() => detailedData.value?.academicService?.activities?.length || 0);
+const administrationItemCount = computed(() => {
+  const curricular = detailedData.value?.administration?.curricularCommittee?.length || 0;
+  const school = detailedData.value?.administration?.schoolCommittee?.length || 0;
+  const university = detailedData.value?.administration?.universityCommittee?.length || 0;
+  return curricular + school + university;
+});
+const artsCultureItemCount = computed(() => {
+  const selfDev = detailedData.value?.artsCulture?.selfDevelopment?.length || 0;
+  const mfuArranged = detailedData.value?.artsCulture?.mfuArranged?.length || 0;
+  return selfDev + mfuArranged;
+});
+
+// Performance badge class
+const getPerformanceBadgeClass = (level: string) => {
+  switch (level) {
+    case 'Excellent': return 'bg-yellow-100 text-yellow-800';
+    case 'Good': return 'bg-green-100 text-green-800';
+    case 'Moderate': return 'bg-blue-100 text-blue-800';
+    case 'Poor': return 'bg-orange-100 text-orange-800';
+    case 'Very Poor': return 'bg-red-100 text-red-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
+// Get Firebase token - use the user from composable at top level
+const getFirebaseToken = async (): Promise<string | null> => {
+  // Wait for auth to be ready - increase timeout and attempts
+  let attempts = 0;
+  while (!user.value && attempts < 30) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    attempts++;
+  }
+  
+  if (!user.value) {
+    console.warn('[staffCode] User not authenticated after', attempts, 'attempts');
+    return null;
+  }
+  
+  try {
+    const token = await user.value.getIdToken();
+    console.log('[staffCode] Got Firebase token successfully');
+    return token;
+  } catch (e) {
+    console.error('Error getting Firebase token:', e);
+    return null;
+  }
+};
+
+// Helper function to make authenticated API calls to MFU via backend proxy
+const fetchMfuData = async (endpoint: string, token: string, evaluateId: string): Promise<any[]> => {
+  try {
+    const backendUrl = getBackendUrl();
+    const url = `${backendUrl}/api/mfu/${endpoint}?staffcode=${staffCode.value}&evaluateid=${evaluateId}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      return result?.data || [];
+    }
+    return [];
+  } catch (err) {
+    console.error(`[staffCode] Error fetching ${endpoint}:`, err);
+    return [];
+  }
+};
+
+// Fetch detailed domain data for all 5 domains
+const fetchDetailedDomainData = async (token: string, evaluateId: string) => {
+  console.log('[staffCode] Fetching detailed domain data...');
+  
+  try {
+    // Fetch all domain data in parallel
+    const [
+      undergraduate,
+      graduate,
+      researchStudies,
+      researchPublications,
+      academicActivities,
+      invitedLecturer,
+      curricularCommittee,
+      schoolCommittee,
+      selfDevelopment,
+      mfuArranged
+    ] = await Promise.allSettled([
+      fetchMfuData('get_Undergraduate', token, evaluateId),
+      fetchMfuData('get_Graduate', token, evaluateId),
+      fetchMfuData('get_ResearchStudies', token, evaluateId),
+      fetchMfuData('get_ResearchPublications', token, evaluateId),
+      fetchMfuData('get_AcademicServiceActivities', token, evaluateId),
+      fetchMfuData('get_PerformanceasanInvitedLecturerorSpeaker', token, evaluateId),
+      fetchMfuData('get_CurricularCommittee', token, evaluateId),
+      fetchMfuData('get_SchoolCommitteeList', token, evaluateId),
+      fetchMfuData('get_SelfDevelopment', token, evaluateId),
+      fetchMfuData('get_MFUArrangedActivities', token, evaluateId)
+    ]);
+    
+    detailedData.value = {
+      teaching: {
+        undergraduate: undergraduate.status === 'fulfilled' ? undergraduate.value : [],
+        graduate: graduate.status === 'fulfilled' ? graduate.value : []
+      },
+      research: {
+        studies: researchStudies.status === 'fulfilled' ? researchStudies.value : [],
+        publications: researchPublications.status === 'fulfilled' ? researchPublications.value : []
+      },
+      academicService: {
+        activities: academicActivities.status === 'fulfilled' ? academicActivities.value : [],
+        invitedLecturer: invitedLecturer.status === 'fulfilled' ? invitedLecturer.value : []
+      },
+      administration: {
+        curricularCommittee: curricularCommittee.status === 'fulfilled' ? curricularCommittee.value : [],
+        schoolCommittee: schoolCommittee.status === 'fulfilled' ? schoolCommittee.value : [],
+        universityCommittee: [] // Add if there's an API endpoint for this
+      },
+      artsCulture: {
+        selfDevelopment: selfDevelopment.status === 'fulfilled' ? selfDevelopment.value : [],
+        mfuArranged: mfuArranged.status === 'fulfilled' ? mfuArranged.value : []
+      }
+    };
+    
+    console.log('[staffCode] Detailed data loaded:', {
+      teaching: (detailedData.value.teaching.undergraduate?.length || 0) + (detailedData.value.teaching.graduate?.length || 0),
+      research: (detailedData.value.research.studies?.length || 0) + (detailedData.value.research.publications?.length || 0),
+      academicService: detailedData.value.academicService.activities?.length || 0,
+      administration: (detailedData.value.administration.curricularCommittee?.length || 0) + (detailedData.value.administration.schoolCommittee?.length || 0),
+      artsCulture: (detailedData.value.artsCulture.selfDevelopment?.length || 0) + (detailedData.value.artsCulture.mfuArranged?.length || 0)
+    });
+  } catch (err) {
+    console.error('[staffCode] Error fetching detailed domain data:', err);
+  }
+};
+
+// Fetch detailed data
+const fetchData = async () => {
+  loading.value = true;
+  error.value = null;
+  
+  const currentStaffCode = staffCode.value;
+  console.log('[staffCode] fetchData starting for:', currentStaffCode, 'at', new Date().toISOString());
+  
+  if (!currentStaffCode) {
+    console.error('[staffCode] No staff code in URL');
+    error.value = 'Invalid staff code. Please go back and try again.';
+    loading.value = false;
+    return;
+  }
+  
+  try {
+    // Get Firebase token first
+    const token = await getFirebaseToken();
+    if (!token) {
+      console.error('[staffCode] No auth token available');
+      error.value = 'Authentication required. Please refresh the page or log in again.';
+      loading.value = false;
+      return;
+    }
+    
+    // Get evaluation period from query or use default
+    const evaluatePeriod = (route.query.round as string) || '9';
+    console.log('[staffCode] Fetching with period:', evaluatePeriod, 'staffCode:', currentStaffCode);
+    
+    // First, try to get basic data from cache
+    console.log('[staffCode] Checking cache, has data:', cachedKpiData.value?.length || 0);
+    const cachedData = cachedKpiData.value?.find(l => l.staffCode === currentStaffCode);
+    if (cachedData) {
+      console.log('[staffCode] Found cached data for:', cachedData.staffName);
+      lecturerData.value = cachedData;
+      // Still fetch detailed domain data even if we have cached basic data
+      await fetchDetailedDomainData(token, evaluatePeriod);
+      loading.value = false;
+      await nextTick();
+      initCharts();
+      return;
+    }
+    
+    console.log('[staffCode] No cache, fetching from API');
+    
+    // Fetch from backend API (which proxies to MFU)
+    const backendUrl = getBackendUrl();
+    const apiUrl = `${backendUrl}/api/mfu/get_Percentage?staffcode=${currentStaffCode}&evaluateid=${evaluatePeriod}`;
+    console.log('[staffCode] API URL:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('[staffCode] API response status:', response.status);
+    
+    if (response.ok) {
+      const result = await response.json();
+      const data = result?.data || result;
+      console.log('[staffCode] API data received:', Array.isArray(data) ? data.length : 1, 'records');
+      
+      const apiData = Array.isArray(data) ? data[0] : data;
+      
+      if (apiData) {
+        // Calculate domain scores as percentages (0-100%)
+        const domainScoresData = {
+          domain1: parseFloat(apiData.domain1score) || parseFloat(apiData.domain1) || 0,
+          domain2: parseFloat(apiData.domain2score) || parseFloat(apiData.domain2) || 0,
+          domain3: parseFloat(apiData.domain3score) || parseFloat(apiData.domain3) || 0,
+          domain4: parseFloat(apiData.domain4score) || parseFloat(apiData.domain4) || 0,
+          domain5: parseFloat(apiData.domain5score) || parseFloat(apiData.domain5) || 0,
+        };
+        
+        // Get weights based on track
+        const trackCode = apiData.domainscorename || 'Teaching';
+        let domainWeights = { 
+          domain1: parseFloat(apiData.domain1weight) || 35, 
+          domain2: parseFloat(apiData.domain2weight) || 40, 
+          domain3: parseFloat(apiData.domain3weight) || 10, 
+          domain4: parseFloat(apiData.domain4weight) || 5, 
+          domain5: parseFloat(apiData.domain5weight) || 10 
+        };
+        
+        // Calculate actual points earned (score * weight / 100)
+        const pointsEarned = {
+          domain1: (domainScoresData.domain1 / 100) * domainWeights.domain1,
+          domain2: (domainScoresData.domain2 / 100) * domainWeights.domain2,
+          domain3: (domainScoresData.domain3 / 100) * domainWeights.domain3,
+          domain4: (domainScoresData.domain4 / 100) * domainWeights.domain4,
+          domain5: (domainScoresData.domain5 / 100) * domainWeights.domain5,
+        };
+        
+        const academicPerformance = pointsEarned.domain1 + pointsEarned.domain2 + pointsEarned.domain3;
+        const behavior = pointsEarned.domain4 + pointsEarned.domain5;
+        const totalScore = apiData['Total Score (100%)'] || (academicPerformance + behavior);
+        
+        // Determine performance level
+        let performanceLevel = 'Very Poor';
+        if (totalScore >= 85) performanceLevel = 'Excellent';
+        else if (totalScore >= 75) performanceLevel = 'Good';
+        else if (totalScore >= 65) performanceLevel = 'Moderate';
+        else if (totalScore >= 55) performanceLevel = 'Poor';
+        
+        lecturerData.value = {
+          staffCode: apiData.staffcode || currentStaffCode,
+          staffName: apiData.staffname || 'Unknown',
+          domainScores: domainScoresData,
+          domainWeights,
+          domainScoreName: trackCode,
+          domainThresholds: {
+            domain1: parseFloat(apiData.domain1threshold) || 0,
+            domain2: parseFloat(apiData.domain2threshold) || 0,
+            domain3: parseFloat(apiData.domain3threshold) || 0,
+            domain4: parseFloat(apiData.domain4threshold) || 0,
+            domain5: parseFloat(apiData.domain5threshold) || 0,
+          },
+          overallPerformance: {
+            academicPerformance,
+            behavior,
+            totalScore
+          },
+          performanceLevel
+        } as any;
+        
+        // Now fetch detailed domain data
+        await fetchDetailedDomainData(token, evaluatePeriod);
+      } else {
+        console.error('[staffCode] No data in API response');
+        throw new Error('No data found for this lecturer');
+      }
+    } else {
+      const errorText = await response.text();
+      console.error('[staffCode] API error:', response.status, errorText);
+      throw new Error(`Failed to fetch lecturer data: ${response.status}`);
+    }
+  } catch (e: any) {
+    console.error('[staffCode] Error fetching detailed data:', e);
+    error.value = e.message || 'Failed to load data';
+  } finally {
+    loading.value = false;
+    await nextTick();
+    initCharts();
+  }
+};
+
+// Initialize charts
+const initCharts = () => {
+  if (!lecturerData.value) return;
+  
+  // Overall Performance Pie Chart (Donut)
+  if (overallPieChart.value) {
+    if (overallChartInstance) {
+      overallChartInstance.destroy();
+    }
+    
+    const academic = lecturerData.value.overallPerformance.academicPerformance;
+    const behavior = lecturerData.value.overallPerformance.behavior;
+    const remaining = Math.max(0, 100 - academic - behavior);
+    
+    overallChartInstance = new Chart(overallPieChart.value, {
+      type: 'doughnut',
+      data: {
+        labels: ['Academic', 'Behavior', 'Remaining'],
+        datasets: [{
+          data: [academic, behavior, remaining],
+          backgroundColor: ['#4697b9', '#00BFFF', '#E5E7EB'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '70%',
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+  
+  // Domain Scores Pie Chart
+  if (domainPieChart.value) {
+    if (domainChartInstance) {
+      domainChartInstance.destroy();
+    }
+    
+    const scores = domainScores.value;
+    
+    domainChartInstance = new Chart(domainPieChart.value, {
+      type: 'pie',
+      data: {
+        labels: ['Teaching', 'Research', 'Academic Service', 'Administration', 'Arts & Culture'],
+        datasets: [{
+          data: [
+            scores.teaching,
+            scores.research,
+            scores.academicService,
+            scores.administration,
+            scores.artsCulture
+          ],
+          backgroundColor: ['#005F99', '#00BFFF', '#7FD6D6', '#7c3aed', '#C084FC'],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+};
+
+// Handle evaluation period change
+const onEvaluationPeriodChange = () => {
+  console.log('[staffCode] Evaluation period changed to:', selectedEvaluationPeriod.value);
+  // Update URL query and refetch data
+  router.push({
+    path: route.path,
+    query: { round: selectedEvaluationPeriod.value.toString() }
+  });
+};
+
+// Lifecycle
+onMounted(async () => {
+  console.log('[staffCode] Component mounted, staffCode:', staffCode.value);
+  
+  // Fetch evaluation periods
+  await fetchEvaluationPeriods();
+  
+  // Set initial evaluation period from URL query or default to 9
+  const roundFromUrl = route.query.round as string;
+  if (roundFromUrl) {
+    selectedEvaluationPeriod.value = parseInt(roundFromUrl);
+  } else if (evaluationPeriods.value.length > 0) {
+    selectedEvaluationPeriod.value = evaluationPeriods.value[0].evaluateid;
+  }
+  
+  // Small delay to ensure DOM is ready
+  await nextTick();
+  fetchData();
+});
+
+onUnmounted(() => {
+  if (overallChartInstance) overallChartInstance.destroy();
+  if (domainChartInstance) domainChartInstance.destroy();
+});
+
+// Watch for route changes (including query changes)
+watch(() => route.params.staffCode, (newVal) => {
+  console.log('[staffCode] Route param changed to:', newVal);
+  if (newVal) {
+    fetchData();
+  }
+});
+
+watch(() => route.query.round, (newVal) => {
+  console.log('[staffCode] Round query changed to:', newVal);
+  fetchData();
+});
+</script>

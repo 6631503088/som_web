@@ -29,29 +29,27 @@ export const useMfuTeachingApi = () => {
     if (!email) return ''
     
     try {
-      // Get Firebase ID token if user is authenticated
-      let headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user.value) {
-        const idToken = await user.value.getIdToken()
-        headers['Authorization'] = `Bearer ${idToken}`
-      }
-
+      // Staff code lookup is public - no auth required
       const backendUrl = getBackendUrl()
+      console.log('[Teaching API] Looking up staff code for email:', email, 'using backend:', backendUrl)
+      
       const response = await fetch(`${backendUrl}/api/lecturer/lookup-staffcode`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       })
+      
       if (response.ok) {
         const data = await response.json()
+        console.log('[Teaching API] Staff code lookup result:', data)
         return data.staffCode || ''
       }
+      
+      console.log('[Teaching API] Staff code lookup failed, status:', response.status)
       return ''
     } catch (err) {
-      console.error('Could not find staff code for email:', email)
-      // Fallback: try to extract from email format (6531503172@lamduan.mfu.ac.th -> 6531503172)
-      const match = email.match(/^(\d+)@/)
-      return match ? match[1] : ''
+      console.error('[Teaching API] Could not find staff code for email:', email, err)
+      return ''
     }
   }
 

@@ -19,13 +19,23 @@
       <span class="ml-3 text-gray-600">Loading faculty members...</span>
     </div>
 
+    <!-- Program Not Found State -->
+    <div v-else-if="programNotFound" class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center mb-8">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-yellow-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <p class="text-yellow-700 font-medium">Program not found</p>
+      <p class="text-yellow-600 text-sm mt-1">The program "{{ slug }}" does not exist.</p>
+      <button @click="goBack" class="mt-3 text-sm text-yellow-600 hover:text-yellow-800 underline">Go back to dashboard</button>
+    </div>
+
     <!-- Error State -->
     <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6 text-center mb-8">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <p class="text-red-600 font-medium">{{ error }}</p>
-      <button @click="fetchLecturers" class="mt-3 text-sm text-red-600 hover:text-red-800 underline">Try again</button>
+      <button @click="fetchData" class="mt-3 text-sm text-red-600 hover:text-red-800 underline">Try again</button>
     </div>
 
     <template v-else>
@@ -106,7 +116,7 @@
       <!-- Faculty Members Section -->
       <div class="mb-8">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h2 class="text-3xl font-bold text-gray-900">{{ programName }}</h2>
+          <h2 class="text-3xl font-bold text-gray-900">{{ programInfo?.program_name || 'Loading...' }}</h2>
 
           <!-- Controls -->
           <div class="flex flex-wrap gap-4 items-center">
@@ -224,19 +234,29 @@
 <script setup lang="ts">
 import { definePageMeta } from '#imports';
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthenticatedFetch } from '~/composables/useAuthenticatedFetch';
 
 const router = useRouter();
+const route = useRoute();
 const { get } = useAuthenticatedFetch();
 
 definePageMeta({
   layout: 'admin'
 })
 
-// Configuration for this program
-const programName = 'Business Administration'
+// Get slug from route params
+const slug = computed(() => route.params.slug as string)
 
+// Program info from API
+const programInfo = ref<{
+  program_id: number
+  program_code: string
+  program_name: string
+  is_active: boolean
+} | null>(null)
+
+const programNotFound = ref(false)
 const searchQuery = ref('')
 const selectedYear = ref('2026')
 const currentPage = ref(1)
@@ -245,25 +265,65 @@ const isLoading = ref(true)
 const error = ref<string | null>(null)
 const facultyList = ref<any[]>([])
 
-// Fetch lecturers from API
-const fetchLecturers = async () => {
+// Slug to program code mapping (for URL friendliness)
+const slugToCodeMap: Record<string, string> = {
+  'accounting': 'ACC',
+  'aviation': 'AVI',
+  'business': 'BA',
+  'economics': 'ECO',
+  'hospitality': 'HRM',
+  'tourism': 'TRM',
+  'logistics': 'LOG',
+  'dean': 'DEAN'
+}
+
+// Get program code from slug
+const getProgramCodeFromSlug = (slug: string): string => {
+  return slugToCodeMap[slug.toLowerCase()] || slug.toUpperCase()
+}
+
+// Fetch program info and lecturers
+const fetchData = async () => {
   isLoading.value = true
   error.value = null
+  programNotFound.value = false
   
   try {
-    const data = await get(`/api/admin/lecturers?program=${encodeURIComponent(programName)}&limit=500`)
+    const programCode = getProgramCodeFromSlug(slug.value)
     
-    if (data.success) {
-      facultyList.value = data.data.map((lecturer: any) => ({
-        ...lecturer,
-        performance: getRandomPerformance()
-      }))
+    // Fetch all programs to find the matching one
+    const programsData = await get('/api/admin/dashboard/programs')
+    
+    if (programsData.success && programsData.programs) {
+      const program = programsData.programs.find(
+        (p: any) => p.program_code.toUpperCase() === programCode.toUpperCase()
+      )
+      
+      if (!program) {
+        programNotFound.value = true
+        isLoading.value = false
+        return
+      }
+      
+      programInfo.value = program
+      
+      // Fetch lecturers using program_id
+      const lecturersData = await get(`/api/admin/lecturers?program_id=${program.program_id}&limit=500`)
+      
+      if (lecturersData.success) {
+        facultyList.value = lecturersData.data.map((lecturer: any) => ({
+          ...lecturer,
+          performance: getRandomPerformance()
+        }))
+      } else {
+        throw new Error(lecturersData.message || 'Failed to fetch lecturers')
+      }
     } else {
-      throw new Error(data.message || 'Failed to fetch lecturers')
+      throw new Error('Failed to fetch programs')
     }
   } catch (err: any) {
-    console.error('Error fetching lecturers:', err)
-    error.value = err.message || 'Failed to load faculty members. Please try again.'
+    console.error('Error fetching data:', err)
+    error.value = err.message || 'Failed to load data. Please try again.'
   } finally {
     isLoading.value = false
   }
@@ -397,7 +457,12 @@ watch(searchQuery, () => {
   currentPage.value = 1
 })
 
+// Watch for slug changes
+watch(slug, () => {
+  fetchData()
+})
+
 onMounted(() => {
-  fetchLecturers()
+  fetchData()
 })
 </script>

@@ -284,11 +284,19 @@ import mfulogo from '@/components/mfulogo.vue'
 import { doc, getDoc, getFirestore } from 'firebase/firestore'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useFirebaseAuth } from '~/composables/useFirebaseAuth'
+import { useKpiCache } from '~/composables/useKpiCache'
 
 const { user, logout } = useFirebaseAuth()
+const { preloadKpiData, isPreloading, initializeFromStorage, hasCachedData } = useKpiCache()
 const showSidebar = ref(false)
 const userData = ref<any>(null)
 const showImage = ref(false)
+
+// Initialize cache from localStorage IMMEDIATELY on script setup (before mount)
+// This ensures cached data is available as fast as possible
+if (typeof window !== 'undefined') {
+  initializeFromStorage()
+}
 
 // Handle image load errors
 const handleImageError = () => {
@@ -324,8 +332,34 @@ async function fetchUserData() {
   }
 }
 
-onMounted(fetchUserData)
+onMounted(async () => {
+  await fetchUserData()
+  
+  // Preload KPI data in the background after admin login
+  // This ensures instant KPI display when user navigates to KPI page
+  if (user.value) {
+    console.log('[AdminLayout] User authenticated, checking cache...')
+    
+    // Only preload if cache is empty or expired
+    if (!hasCachedData()) {
+      console.log('[AdminLayout] No valid cache, starting KPI preload...')
+      preloadKpiData().catch(err => {
+        console.warn('[AdminLayout] KPI preload failed (non-critical):', err)
+      })
+    } else {
+      console.log('[AdminLayout] ✅ Cache already valid, skipping preload')
+    }
+  }
+})
 
 // Watch for changes in user authentication
-watch(() => user.value?.email, fetchUserData)
+watch(() => user.value?.email, async (newEmail) => {
+  await fetchUserData()
+  // Also preload KPI when user changes (re-login)
+  if (newEmail) {
+    preloadKpiData().catch(err => {
+      console.warn('[AdminLayout] KPI preload on user change failed:', err)
+    })
+  }
+})
 </script>

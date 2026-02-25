@@ -23,31 +23,32 @@ export const useMfuKpiApi = () => {
            'https://som.mlbbshop.app'
   }
 
+  // Extract staff code from email by looking up in lecturer_profiles database
   const extractStaffCode = async (email: string): Promise<string> => {
     if (!email) return ''
     
     try {
-      // Get Firebase ID token if user is authenticated
-      let headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user.value) {
-        const idToken = await user.value.getIdToken()
-        headers['Authorization'] = `Bearer ${idToken}`
-      }
-
+      // Staff code lookup is public - no auth required
       const backendUrl = getBackendUrl()
+      console.log('[KPI API] Looking up staff code for email:', email)
+      
       const response = await fetch(`${backendUrl}/api/lecturer/lookup-staffcode`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       })
+      
       if (response.ok) {
         const data = await response.json()
+        console.log('[KPI API] Staff code lookup result:', data)
         return data.staffCode || ''
       }
+      
+      console.log('[KPI API] Staff code lookup failed, status:', response.status)
       return ''
     } catch (err) {
-      const match = email.match(/^(\d+)@/)
-      return match ? match[1] : ''
+      console.error('[KPI API] Could not find staff code for email:', email, err)
+      return ''
     }
   }
 
