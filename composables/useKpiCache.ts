@@ -149,8 +149,8 @@ export const useKpiCache = () => {
     return 'Very Poor'
   }
 
-  // Fetch lecturers from backend
-  const fetchLecturersFromBackend = async (firebaseToken: string): Promise<{staffCode: string, staffName: string}[]> => {
+  // Fetch lecturers from backend (with program info)
+  const fetchLecturersFromBackend = async (firebaseToken: string): Promise<{staffCode: string, staffName: string, program?: string, programId?: number}[]> => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/admin/lecturers?limit=500`, {
         method: 'GET',
@@ -165,7 +165,9 @@ export const useKpiCache = () => {
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
           return data.data.map((l: any) => ({
             staffCode: l.staff_code,
-            staffName: l.staff_name
+            staffName: l.staff_name,
+            program: l.program || undefined,
+            programId: l.program_id || undefined
           }))
         }
       }
@@ -174,6 +176,32 @@ export const useKpiCache = () => {
     } catch (err) {
       console.error('[KpiCache] Error fetching lecturers:', err)
       return getFallbackStaffList()
+    }
+  }
+
+  // Fetch programs list for code mapping
+  const fetchProgramsFromBackend = async (firebaseToken: string): Promise<Map<number, string>> => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/programs?active_only=true`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${firebaseToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && Array.isArray(data.data)) {
+          const map = new Map<number, string>()
+          data.data.forEach((p: any) => map.set(p.program_id, p.program_code))
+          return map
+        }
+      }
+      return new Map()
+    } catch (err) {
+      console.error('[KpiCache] Error fetching programs:', err)
+      return new Map()
     }
   }
 
@@ -344,9 +372,23 @@ export const useKpiCache = () => {
         // Determine evaluation period ID
         const evalId = evaluationPeriodId || activeEvaluationPeriod.value?.evaluateid || 9
 
-        // Get list of lecturers
-        const lecturers = await fetchLecturersFromBackend(firebaseToken)
-        console.log(`[KpiCache] Found ${lecturers.length} lecturers, fetching KPI data...`)
+        // Get list of lecturers and programs
+        const [lecturers, programMap] = await Promise.all([
+          fetchLecturersFromBackend(firebaseToken),
+          fetchProgramsFromBackend(firebaseToken)
+        ])
+        console.log(`[KpiCache] Found ${lecturers.length} lecturers (${programMap.size} programs), fetching KPI data...`)
+
+        // Build lecturer -> program lookup
+        const lecturerProgramMap = new Map<string, { program?: string, programCode?: string, programId?: number }>()
+        lecturers.forEach(l => {
+          const programCode = l.programId ? programMap.get(l.programId) : undefined
+          lecturerProgramMap.set(l.staffCode, {
+            program: l.program,
+            programCode: programCode,
+            programId: l.programId
+          })
+        })
 
       // Fetch KPI data in parallel batches
       const batchSize = 10
@@ -359,6 +401,13 @@ export const useKpiCache = () => {
         
         for (const result of batchResults) {
           if (result) {
+            // Enrich KPI with program info
+            const programInfo = lecturerProgramMap.get(result.staffCode)
+            if (programInfo) {
+              result.program = programInfo.program
+              result.programCode = programInfo.programCode
+              result.programId = programInfo.programId
+            }
             allKpiData.push(result)
           }
         }

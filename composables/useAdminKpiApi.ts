@@ -4,6 +4,9 @@ import { useFirebaseAuth } from '@/composables/useFirebaseAuth'
 export interface LecturerKpiData {
   staffCode: string
   staffName: string
+  program?: string
+  programCode?: string
+  programId?: number
   domainScoreName: string
   domainWeights: {
     domain1: number
@@ -89,8 +92,8 @@ export const useAdminKpiApi = () => {
     return 'Very Poor'
   }
 
-  // Fetch all lecturers from local database
-  const fetchLecturersFromBackend = async (): Promise<{staffCode: string, staffName: string}[]> => {
+  // Fetch all lecturers from local database (with program info for mapping)
+  const fetchLecturersFromBackend = async (): Promise<{staffCode: string, staffName: string, program?: string, programCode?: string, programId?: number}[]> => {
     try {
       const firebaseToken = await getFirebaseToken()
       if (!firebaseToken) {
@@ -111,7 +114,10 @@ export const useAdminKpiApi = () => {
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
           return data.data.map((l: any) => ({
             staffCode: l.staff_code,
-            staffName: l.staff_name
+            staffName: l.staff_name,
+            program: l.program || undefined,
+            programCode: undefined, // Will be enriched below
+            programId: l.program_id || undefined
           }))
         }
       }
@@ -122,6 +128,37 @@ export const useAdminKpiApi = () => {
     } catch (err) {
       console.error('[AdminKPI] Error fetching lecturers from backend:', err)
       return getFallbackStaffList()
+    }
+  }
+
+  // Fetch programs list for code mapping
+  const fetchProgramsFromBackend = async (): Promise<{programId: number, programCode: string, programName: string}[]> => {
+    try {
+      const firebaseToken = await getFirebaseToken()
+      if (!firebaseToken) return []
+
+      const response = await fetch(`${BACKEND_URL}/api/admin/programs?active_only=true`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${firebaseToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && Array.isArray(data.data)) {
+          return data.data.map((p: any) => ({
+            programId: p.program_id,
+            programCode: p.program_code,
+            programName: p.program_name
+          }))
+        }
+      }
+      return []
+    } catch (err) {
+      console.error('[AdminKPI] Error fetching programs:', err)
+      return []
     }
   }
 
@@ -218,7 +255,7 @@ export const useAdminKpiApi = () => {
     }
   }
 
-  // Fetch all lecturers' KPI data
+  // Fetch all lecturers' KPI data (enriched with program info)
   const fetchAllLecturersKpi = async (evaluateId: string | number = '9') => {
     try {
       isLoading.value = true
@@ -231,8 +268,11 @@ export const useAdminKpiApi = () => {
       }
       authToken.value = firebaseToken
 
-      // Get list of lecturers from backend database (with fallback)
-      const lecturers = await fetchLecturersFromBackend()
+      // Get list of lecturers from backend database (with program info)
+      const [lecturers, programs] = await Promise.all([
+        fetchLecturersFromBackend(),
+        fetchProgramsFromBackend()
+      ])
       
       if (lecturers.length === 0) {
         console.warn('[AdminKPI] No lecturers found')
@@ -241,7 +281,22 @@ export const useAdminKpiApi = () => {
         return []
       }
 
-      console.log(`[AdminKPI] Found ${lecturers.length} lecturers, fetching KPI data...`)
+      // Build program lookup map: programId -> programCode
+      const programMap = new Map<number, string>()
+      programs.forEach(p => programMap.set(p.programId, p.programCode))
+
+      // Build lecturer lookup map: staffCode -> { program, programCode, programId }
+      const lecturerProgramMap = new Map<string, { program?: string, programCode?: string, programId?: number }>()
+      lecturers.forEach(l => {
+        const programCode = l.programId ? programMap.get(l.programId) : undefined
+        lecturerProgramMap.set(l.staffCode, {
+          program: l.program,
+          programCode: programCode,
+          programId: l.programId
+        })
+      })
+
+      console.log(`[AdminKPI] Found ${lecturers.length} lecturers (${programs.length} programs), fetching KPI data...`)
 
       // Fetch KPI data for each lecturer in parallel (batch of 10)
       const batchSize = 10
@@ -254,12 +309,19 @@ export const useAdminKpiApi = () => {
         
         for (const result of batchResults) {
           if (result) {
+            // Enrich KPI data with program info from lecturer_profiles
+            const programInfo = lecturerProgramMap.get(result.staffCode)
+            if (programInfo) {
+              result.program = programInfo.program
+              result.programCode = programInfo.programCode
+              result.programId = programInfo.programId
+            }
             allKpiData.push(result)
           }
         }
       }
 
-      console.log(`[AdminKPI] Successfully fetched KPI data for ${allKpiData.length} lecturers`)
+      console.log(`[AdminKPI] Successfully fetched KPI data for ${allKpiData.length} lecturers (with program mapping)`)
       allLecturersKpi.value = allKpiData
       return allKpiData
 
@@ -406,6 +468,14 @@ export const useAdminKpiApi = () => {
     return allLecturersKpi.value.filter(l => l.performanceLevel === level)
   }
 
+  // Filter lecturers by program code
+  const filterByProgram = (programCode: string) => {
+    if (!programCode || programCode === 'all') {
+      return allLecturersKpi.value
+    }
+    return allLecturersKpi.value.filter(l => l.programCode === programCode)
+  }
+
   // Search lecturers by name or staff code
   const searchLecturers = (query: string) => {
     if (!query) {
@@ -427,6 +497,7 @@ export const useAdminKpiApi = () => {
     fetchLecturerKpiByStaffCode,
     getKpiStatistics,
     filterByPerformanceLevel,
+    filterByProgram,
     searchLecturers,
     getPerformanceLevel
   }

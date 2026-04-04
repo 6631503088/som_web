@@ -4,10 +4,10 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
       <div>
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900">
-          KPI Performance Overview
+          Performance Analytics
         </h1>
         <p class="text-sm text-gray-600">
-          View all lecturers' performance metrics
+          View and filter lecturers' performance by program
           <span v-if="!loading && combinedKpiData.length > 0 && hasCachedData(selectedEvaluationPeriod)" class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
             <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
@@ -45,81 +45,117 @@
     <div v-if="loading && !hasCachedData(selectedEvaluationPeriod)" class="space-y-6">
       <!-- Combined KPI Overview Skeleton -->
       <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-        <!-- Header Skeleton - matches real header -->
+        <!-- Header Skeleton -->
         <div class="bg-gradient-to-r from-[#1e3a5f] to-[#2d5a87] px-6 py-4">
           <div class="h-7 w-64 bg-white/20 rounded animate-pulse"></div>
           <div class="h-4 w-24 bg-white/10 rounded mt-2 animate-pulse"></div>
         </div>
-        <!-- Content Skeleton -->
-        <div class="p-6">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Left: Average Domain Scores Skeleton -->
-            <div>
-              <div class="h-4 w-48 bg-gray-200 rounded mb-4 animate-pulse"></div>
-              <div class="space-y-3">
-                <div v-for="i in 5" :key="i" class="flex items-center gap-3 animate-pulse">
-                  <div class="w-24 h-4 bg-gray-200 rounded"></div>
-                  <div class="flex-1 h-2.5 bg-gray-100 rounded-full"></div>
-                  <div class="w-16 h-4 bg-gray-200 rounded"></div>
+        <!-- Content Skeleton matching 3-row layout -->
+        <div class="p-6 space-y-6">
+          <!-- ROW 1: Three metric cards -->
+          <div>
+            <div class="h-4 w-36 bg-gray-200 rounded mb-3 animate-pulse"></div>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="bg-blue-50 rounded-lg p-3 text-center animate-pulse">
+                <div class="h-7 w-16 bg-blue-200 rounded mx-auto mb-1"></div>
+                <div class="h-3 w-14 bg-blue-100 rounded mx-auto"></div>
+              </div>
+              <div class="bg-emerald-50 rounded-lg p-3 text-center animate-pulse">
+                <div class="h-7 w-16 bg-emerald-200 rounded mx-auto mb-1"></div>
+                <div class="h-3 w-20 bg-emerald-100 rounded mx-auto"></div>
+              </div>
+              <div class="bg-purple-50 rounded-lg p-3 text-center animate-pulse">
+                <div class="h-7 w-16 bg-purple-200 rounded mx-auto mb-1"></div>
+                <div class="h-3 w-20 bg-purple-100 rounded mx-auto"></div>
+              </div>
+            </div>
+          </div>
+          <!-- ROW 2+3: 2×2 grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <!-- Top-left: Pie chart skeleton -->
+            <div class="bg-gray-50/60 rounded-lg p-4 animate-pulse">
+              <div class="h-4 w-32 bg-gray-200 rounded mb-1"></div>
+              <div class="h-3 w-40 bg-gray-100 rounded mb-3"></div>
+              <div class="flex items-center gap-5">
+                <div class="w-36 h-36 bg-gray-200 rounded-full flex-shrink-0"></div>
+                <div class="flex-1 space-y-3">
+                  <div v-for="i in 4" :key="'s1-'+i" class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <div class="w-3 h-3 rounded-full bg-gray-200"></div>
+                      <div class="w-20 h-3 bg-gray-200 rounded"></div>
+                    </div>
+                    <div class="w-12 h-3 bg-gray-200 rounded"></div>
+                  </div>
                 </div>
               </div>
             </div>
-            <!-- Right: Performance Levels Skeleton -->
-            <div class="flex flex-col lg:flex-row items-center gap-6">
-              <!-- Pie Chart Skeleton -->
-              <div class="flex-shrink-0">
-                <div class="w-40 h-40 bg-gray-100 rounded-full animate-pulse"></div>
-              </div>
-              <!-- Legend Skeleton -->
-              <div class="flex-1 w-full">
-                <div class="h-3 w-32 bg-gray-200 rounded mb-3 animate-pulse"></div>
-                <div class="space-y-2">
-                  <div v-for="i in 5" :key="i" class="flex items-center justify-between animate-pulse">
-                    <div class="flex items-center">
-                      <div class="w-3 h-3 rounded-full bg-gray-200 mr-2"></div>
-                      <div class="w-16 h-4 bg-gray-200 rounded"></div>
+            <!-- Top-right: Pie chart skeleton -->
+            <div class="bg-gray-50/60 rounded-lg p-4 animate-pulse">
+              <div class="h-4 w-32 bg-gray-200 rounded mb-1"></div>
+              <div class="h-3 w-48 bg-gray-100 rounded mb-3"></div>
+              <div class="flex items-center gap-5">
+                <div class="w-36 h-36 bg-gray-200 rounded-full flex-shrink-0"></div>
+                <div class="flex-1 space-y-3">
+                  <div v-for="i in 5" :key="'s2-'+i" class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <div class="w-3 h-3 rounded-full bg-gray-200"></div>
+                      <div class="w-16 h-3 bg-gray-200 rounded"></div>
                     </div>
-                    <div class="w-8 h-5 bg-gray-200 rounded"></div>
+                    <div class="w-6 h-3 bg-gray-200 rounded"></div>
                   </div>
+                </div>
+              </div>
+            </div>
+            <!-- Bottom-left: Bar chart skeleton -->
+            <div class="bg-gray-50/60 rounded-lg p-4 animate-pulse">
+              <div class="h-4 w-36 bg-gray-200 rounded mb-3"></div>
+              <div class="space-y-3">
+                <div v-for="i in 4" :key="'s3-'+i">
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="w-28 h-3 bg-gray-200 rounded"></div>
+                    <div class="w-10 h-3 bg-gray-200 rounded"></div>
+                  </div>
+                  <div class="h-2.5 bg-gray-200 rounded-full"></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <!-- Search/Filter Skeleton -->
+      <!-- Search/Filter Skeleton (4 controls) -->
       <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-        <div class="flex flex-col sm:flex-row gap-4">
+        <div class="flex flex-col sm:flex-row gap-3">
           <div class="flex-1 h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+          <div class="sm:w-36 h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+          <div class="sm:w-40 h-10 bg-gray-100 rounded-lg animate-pulse"></div>
           <div class="sm:w-40 h-10 bg-gray-100 rounded-lg animate-pulse"></div>
           <div class="sm:w-44 h-10 bg-gray-100 rounded-lg animate-pulse"></div>
         </div>
       </div>
       <!-- Table Skeleton -->
       <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-        <!-- Table Header Skeleton -->
         <div class="border-b border-gray-200">
           <div class="flex bg-gray-50 px-4 py-3">
             <div class="w-1/4 h-4 bg-gray-200 rounded animate-pulse"></div>
-            <div class="w-1/4 h-4 bg-gray-200 rounded animate-pulse ml-4"></div>
+            <div class="w-1/6 h-4 bg-gray-200 rounded animate-pulse ml-4"></div>
+            <div class="w-1/6 h-4 bg-gray-200 rounded animate-pulse ml-4"></div>
             <div class="w-1/6 h-4 bg-gray-200 rounded animate-pulse ml-4"></div>
             <div class="w-1/6 h-4 bg-gray-200 rounded animate-pulse ml-4"></div>
             <div class="w-1/6 h-4 bg-gray-200 rounded animate-pulse ml-4"></div>
           </div>
         </div>
-        <!-- Table Rows Skeleton -->
         <div class="divide-y divide-gray-100">
-          <div v-for="i in 5" :key="i" class="flex items-center px-4 py-4 animate-pulse">
+          <div v-for="i in 5" :key="'tbl-'+i" class="flex items-center px-4 py-4 animate-pulse">
             <div class="w-10 h-10 bg-gray-200 rounded-full"></div>
             <div class="ml-3 flex-1">
               <div class="h-4 w-32 bg-gray-200 rounded mb-1"></div>
               <div class="h-3 w-20 bg-gray-100 rounded"></div>
             </div>
-            <div class="w-24 h-4 bg-gray-200 rounded ml-4"></div>
-            <div class="w-16 h-6 bg-gray-200 rounded-full ml-4"></div>
-            <div class="w-16 h-4 bg-gray-200 rounded ml-4"></div>
-            <div class="w-16 h-4 bg-gray-200 rounded ml-4"></div>
-            <div class="w-16 h-8 bg-gray-200 rounded ml-4"></div>
+            <div class="w-20 h-5 bg-gray-200 rounded-full ml-4"></div>
+            <div class="w-14 h-5 bg-gray-200 rounded ml-4"></div>
+            <div class="w-16 h-5 bg-gray-200 rounded-full ml-4"></div>
+            <div class="w-14 h-4 bg-gray-200 rounded ml-4"></div>
+            <div class="w-14 h-4 bg-gray-200 rounded ml-4"></div>
           </div>
         </div>
       </div>
@@ -150,100 +186,197 @@
       <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden mb-6">
         <!-- Blue Header -->
         <div class="bg-gradient-to-r from-[#1e3a5f] to-[#2d5a87] px-6 py-4">
-          <h2 class="text-xl font-bold text-white">KPI Performance Overview</h2>
+          <h2 class="text-xl font-bold text-white">Performance Analytics Overview</h2>
           <p class="text-white/70 text-sm">{{ combinedKpiData?.length || 0 }} lecturers</p>
         </div>
         
         <!-- Content -->
-        <div class="p-6">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="p-6 space-y-6">
+          
+          <!-- ═══════ ROW 1: OVERALL PERFORMANCE (Full Width) ═══════ -->
+          <div>
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Overall Performance</h3>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 text-center">
+                <p class="text-2xl font-bold text-blue-700">{{ trackSafeAggregates.avgTotal.toFixed(1) }}%</p>
+                <p class="text-xs text-blue-600 font-medium">Avg Total</p>
+              </div>
+              <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-3 text-center">
+                <p class="text-2xl font-bold text-emerald-700">{{ trackSafeAggregates.avgAcademic.toFixed(1) }}%</p>
+                <p class="text-xs text-emerald-600 font-medium">Academic (60%)</p>
+              </div>
+              <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 text-center">
+                <p class="text-2xl font-bold text-purple-700">{{ trackSafeAggregates.avgBehavior.toFixed(1) }}%</p>
+                <p class="text-xs text-purple-600 font-medium">Behavior (40%)</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════ ROW 2+3: 2×2 GRID LAYOUT ═══════ -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
             
-            <!-- Left: Average KPI Scores -->
-            <div>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Average Domain Scores</h3>
-              <div class="space-y-3">
-                <div
-                  v-for="(category, index) in displayKpiCategories"
-                  :key="index"
-                  class="flex items-center gap-3"
-                >
-                  <!-- Domain Name -->
-                  <div class="w-24 flex-shrink-0">
-                    <p class="text-sm font-medium text-gray-700 truncate">{{ category.name }}</p>
+            <!-- TOP-LEFT: Track Distribution Pie -->
+            <div class="bg-gray-50/60 rounded-lg p-4">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Track Distribution</h3>
+              <p class="text-[10px] text-gray-400 mb-3">{{ combinedKpiData.length }} lecturers across {{ trackSafeAggregates.trackGroups.length }} tracks</p>
+              
+              <div class="flex items-center gap-5">
+                <!-- Pie Chart (larger) -->
+                <div class="flex-shrink-0">
+                  <div class="w-36 h-36">
+                    <canvas ref="trackDistributionChart"></canvas>
                   </div>
-                  
-                  <!-- Progress Bar -->
-                  <div class="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                </div>
+                <!-- Legend (tighter) -->
+                <div class="flex-1 space-y-2">
+                  <div v-for="(track, idx) in trackSafeAggregates.trackGroups" :key="'dist-legend-' + idx" class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <span class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: track.color }"></span>
+                      <span class="text-xs text-gray-700 truncate">{{ track.name }}</span>
+                    </div>
+                    <span class="text-xs font-bold text-gray-800 ml-2 flex-shrink-0">{{ track.count }} <span class="font-normal text-gray-400">({{ (track.count / combinedKpiData.length * 100).toFixed(0) }}%)</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- TOP-RIGHT: Performance Levels Pie -->
+            <div class="bg-gray-50/60 rounded-lg p-4">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Performance Levels</h3>
+              <p class="text-[10px] text-gray-400 mb-3">Distribution by KPI score thresholds</p>
+              
+              <div class="flex items-center gap-5">
+                <!-- Pie Chart (larger) -->
+                <div class="flex-shrink-0">
+                  <div class="w-36 h-36">
+                    <canvas ref="performanceDistributionChart"></canvas>
+                  </div>
+                </div>
+                <!-- Legend (tighter) -->
+                <div class="flex-1 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded-full bg-yellow-400"></span>
+                      <span class="text-xs text-gray-700">Excellent</span>
+                    </div>
+                    <span class="text-xs font-bold text-yellow-600">{{ performanceLevelCounts.Excellent || 0 }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+                      <span class="text-xs text-gray-700">Good</span>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-600">{{ performanceLevelCounts.Good || 0 }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded-full bg-blue-400"></span>
+                      <span class="text-xs text-gray-700">Moderate</span>
+                    </div>
+                    <span class="text-xs font-bold text-blue-600">{{ performanceLevelCounts.Moderate || 0 }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded-full bg-orange-400"></span>
+                      <span class="text-xs text-gray-700">Poor</span>
+                    </div>
+                    <span class="text-xs font-bold text-orange-600">{{ performanceLevelCounts.Poor || 0 }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded-full bg-red-400"></span>
+                      <span class="text-xs text-gray-700">Very Poor</span>
+                    </div>
+                    <span class="text-xs font-bold text-red-600">{{ performanceLevelCounts['Very Poor'] || 0 }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- BOTTOM-LEFT: Average KPI Score -->
+            <div class="bg-gray-50/60 rounded-lg p-4">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Average KPI Score</h3>
+              
+              <div class="space-y-3">
+                <div v-for="(track, idx) in trackSafeAggregates.trackGroups" :key="'perf-' + idx" class="relative">
+                  <!-- Single line: Track name + count + score -->
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{ backgroundColor: track.color }"></span>
+                      <span class="text-xs font-semibold text-gray-800 truncate">{{ track.name }}</span>
+                      <span class="text-[10px] text-gray-400 flex-shrink-0">({{ track.count }} / {{ combinedKpiData.length }} lecturers)</span>
+                    </div>
+                    <span class="text-sm font-bold flex-shrink-0 ml-2" :style="{ color: track.color }">{{ track.avgScore.toFixed(1) }}%</span>
+                  </div>
+                  <!-- Performance bar (clean, no scratch) -->
+                  <div class="h-2 bg-gray-200 rounded-full overflow-hidden ml-4">
                     <div 
-                      class="h-2.5 rounded-full transition-all duration-500"
-                      :style="{ 
-                        width: Math.min(category.score, 100) + '%',
-                        backgroundColor: category.color || '#4697b9'
-                      }"
+                      class="h-2 rounded-full transition-all duration-700 ease-out"
+                      :style="{ width: Math.min(track.avgScore, 100) + '%', backgroundColor: track.color }"
                     ></div>
                   </div>
-                  
-                  <!-- Score -->
-                  <div class="w-20 flex-shrink-0 text-right">
-                    <span class="text-sm font-bold text-gray-900">{{ (category.pointsEarned !== undefined ? category.pointsEarned : (category.score / 100) * category.weight).toFixed(1) }}</span>
-                    <span class="text-xs text-gray-400">/{{ category.weight }}</span>
-                  </div>
+                </div>
+                <!-- Footer: Overall average info -->
+                <div class="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-gray-200 ml-4">
+                  <span class="text-[10px] text-gray-400">Overall Avg: <span class="font-semibold text-gray-500">{{ trackSafeAggregates.avgTotal.toFixed(1) }}%</span> (all {{ combinedKpiData.length }} lecturers)</span>
                 </div>
               </div>
             </div>
-            
-            <!-- Right: Performance Distribution -->
-            <div class="flex flex-col lg:flex-row items-center gap-6">
-              <!-- Pie Chart -->
-              <div class="flex-shrink-0">
-                <div class="w-40 h-40">
-                  <canvas ref="performanceDistributionChart"></canvas>
-                </div>
-              </div>
-              
-              <!-- Legend -->
-              <div class="flex-1 w-full">
-                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Performance Levels</h3>
-                <div class="space-y-2">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                      <span class="w-3 h-3 rounded-full bg-yellow-400 mr-2"></span>
-                      <span class="text-sm text-gray-600">Excellent</span>
-                    </div>
-                    <span class="text-lg font-bold text-yellow-600">{{ performanceLevelCounts.Excellent || 0 }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                      <span class="w-3 h-3 rounded-full bg-emerald-400 mr-2"></span>
-                      <span class="text-sm text-gray-600">Good</span>
-                    </div>
-                    <span class="text-lg font-bold text-emerald-600">{{ performanceLevelCounts.Good || 0 }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                      <span class="w-3 h-3 rounded-full bg-blue-400 mr-2"></span>
-                      <span class="text-sm text-gray-600">Moderate</span>
-                    </div>
-                    <span class="text-lg font-bold text-blue-600">{{ performanceLevelCounts.Moderate || 0 }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                      <span class="w-3 h-3 rounded-full bg-orange-400 mr-2"></span>
-                      <span class="text-sm text-gray-600">Poor</span>
-                    </div>
-                    <span class="text-lg font-bold text-orange-600">{{ performanceLevelCounts.Poor || 0 }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                      <span class="w-3 h-3 rounded-full bg-red-400 mr-2"></span>
-                      <span class="text-sm text-gray-600">Very Poor</span>
-                    </div>
-                    <span class="text-lg font-bold text-red-600">{{ performanceLevelCounts['Very Poor'] || 0 }}</span>
-                  </div>
-                </div>
-              </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══════ PROGRAM PERFORMANCE SUMMARY ═══════ -->
+      <div v-if="programAggregates.length > 0" class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden mb-6">
+        <div class="bg-gradient-to-r from-[#004086] to-[#1a6bb5] px-6 py-4">
+          <div class="flex items-center gap-3">
+            <div class="bg-white/15 p-2 rounded-lg">
+              <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
             </div>
-            
+            <div>
+              <h2 class="text-lg font-bold text-white">Program Performance Summary</h2>
+              <p class="text-white/60 text-sm">Average KPI scores per academic program — click to filter</p>
+            </div>
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+            <button
+              v-for="prog in programAggregates"
+              :key="prog.programCode"
+              @click="selectProgramFilter(prog.programCode)"
+              class="relative group rounded-xl border-2 p-3 text-center transition-all duration-200 hover:shadow-md cursor-pointer"
+              :class="selectedProgram === prog.programCode 
+                ? 'border-[#004086] bg-[#E0EFFF] shadow-md ring-1 ring-[#004086]/20' 
+                : 'border-gray-200 hover:border-[#004086]/30 bg-white'"
+            >
+              <div class="text-xs font-bold uppercase tracking-wider mb-1" :class="selectedProgram === prog.programCode ? 'text-[#004086]' : 'text-gray-500'">{{ prog.programCode }}</div>
+              <div class="text-2xl font-bold mb-0.5" :class="getScoreColorClass(prog.avgTotalScore)">{{ prog.avgTotalScore.toFixed(1) }}%</div>
+              <div class="text-[10px] font-medium" :class="selectedProgram === prog.programCode ? 'text-[#004086]/70' : 'text-gray-400'">{{ prog.count }} lecturer{{ prog.count !== 1 ? 's' : '' }}</div>
+              <div class="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500" :style="{ width: Math.min(prog.avgTotalScore, 100) + '%' }" :class="getScoreBarClass(prog.avgTotalScore)"></div>
+              </div>
+              <!-- Active indicator -->
+              <div v-if="selectedProgram === prog.programCode" class="absolute -top-1 -right-1 w-5 h-5 bg-[#004086] rounded-full flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </button>
+          </div>
+          <!-- Clear filter hint -->
+          <div v-if="selectedProgram !== 'all'" class="mt-3 flex items-center justify-center gap-3">
+            <button @click="selectedProgram = 'all'; currentPage = 1" class="text-xs text-gray-500 hover:text-gray-700 font-medium flex items-center gap-1 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              Clear filter
+            </button>
+            <span class="text-gray-300">|</span>
+            <NuxtLink :to="'/admin/kpi/program/' + selectedProgram.toLowerCase()" class="text-xs text-[#004086] hover:text-[#003060] font-semibold flex items-center gap-1 transition-colors">
+              View {{ selectedProgram }} Details
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            </NuxtLink>
           </div>
         </div>
       </div>
@@ -266,11 +399,44 @@
             >
           </div>
 
+          <!-- Program Filter -->
+          <div class="relative sm:w-36">
+            <select 
+              v-model="selectedProgram"
+              @change="currentPage = 1"
+              class="w-full appearance-none bg-gray-50 border border-gray-200 rounded-lg py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#4697b9] focus:border-transparent text-sm"
+            >
+              <option value="all">All Programs</option>
+              <option v-for="prog in availablePrograms" :key="prog" :value="prog">{{ prog }}</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 20 20" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Track Filter -->
+          <div class="relative sm:w-44">
+            <select 
+              v-model="selectedTrack"
+              class="w-full appearance-none bg-gray-50 border border-gray-200 rounded-lg py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#4697b9] focus:border-transparent text-sm"
+            >
+              <option value="all">All Tracks</option>
+              <option v-for="track in availableTracks" :key="track" :value="track">{{ track }}</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 20 20" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </div>
+          </div>
+
           <!-- Performance Level Filter -->
           <div class="relative sm:w-40">
             <select 
               v-model="selectedPerformanceLevel"
-              class="w-full appearance-none bg-gray-50 border border-gray-200 rounded-lg py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#4697b9] focus:border-transparent"
+              class="w-full appearance-none bg-gray-50 border border-gray-200 rounded-lg py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#4697b9] focus:border-transparent text-sm"
             >
               <option value="all">All Levels</option>
               <option value="Excellent">Excellent</option>
@@ -290,7 +456,7 @@
           <div class="relative sm:w-44">
             <select 
               v-model="sortBy"
-              class="w-full appearance-none bg-gray-50 border border-gray-200 rounded-lg py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#4697b9] focus:border-transparent"
+              class="w-full appearance-none bg-gray-50 border border-gray-200 rounded-lg py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#4697b9] focus:border-transparent text-sm"
             >
               <option value="score-desc">Score: High → Low</option>
               <option value="score-asc">Score: Low → High</option>
@@ -304,6 +470,27 @@
             </div>
           </div>
         </div>
+        <!-- Active filters summary -->
+        <div v-if="activeFilterCount > 0" class="mt-3 flex items-center flex-wrap gap-2">
+          <span class="text-xs text-gray-400">Active filters:</span>
+          <span v-if="selectedProgram !== 'all'" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+            Program: {{ selectedProgram }}
+            <button @click="selectedProgram = 'all'" class="ml-1 hover:text-emerald-900">×</button>
+          </span>
+          <span v-if="selectedTrack !== 'all'" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+            Track: {{ selectedTrack }}
+            <button @click="selectedTrack = 'all'" class="ml-1 hover:text-blue-900">×</button>
+          </span>
+          <span v-if="selectedPerformanceLevel !== 'all'" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+            Level: {{ selectedPerformanceLevel }}
+            <button @click="selectedPerformanceLevel = 'all'" class="ml-1 hover:text-yellow-900">×</button>
+          </span>
+          <span v-if="searchQuery" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+            Search: "{{ searchQuery }}"
+            <button @click="searchQuery = ''" class="ml-1 hover:text-gray-900">×</button>
+          </span>
+          <button @click="clearAllFilters" class="text-xs text-red-500 hover:text-red-700 font-medium ml-1">Clear all</button>
+        </div>
       </div>
 
       <!-- Lecturer Table -->
@@ -314,12 +501,12 @@
             <thead>
               <tr class="border-b border-gray-200">
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">User</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">Email</th>
+                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">Program</th>
+                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">Track</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-[#1e3a5f] uppercase tracking-wider bg-[#e8f4fc]">Score</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-[#1e3a5f] uppercase tracking-wider bg-[#e8f4fc]">Level</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-[#1e3a5f] uppercase tracking-wider bg-[#e8f4fc]">Academic</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-[#1e3a5f] uppercase tracking-wider bg-[#e8f4fc]">Behavior</th>
-                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -334,7 +521,8 @@
               <tr 
                 v-for="(lecturer, idx) in paginatedLecturers" 
                 :key="lecturer.staffCode"
-                class="hover:bg-blue-50/50 transition-colors"
+                class="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                @click="navigateToDetail(lecturer.staffCode)"
               >
                 <!-- User Column -->
                 <td class="px-4 py-3">
@@ -343,18 +531,34 @@
                       {{ getInitials(lecturer.staffName) }}
                     </div>
                     <div class="ml-3">
-                      <p class="font-medium text-gray-900 text-sm">{{ lecturer.staffName }}</p>
+                      <p class="font-medium text-gray-900 text-sm group-hover:text-[#1e3a5f] transition-colors">{{ lecturer.staffName }}</p>
                       <p class="text-xs text-gray-500">{{ lecturer.staffCode }}</p>
                     </div>
                   </div>
                 </td>
                 
-                <!-- Email Column -->
-                <td class="px-4 py-3">
-                  <div class="text-sm text-gray-600">
-                    <p>{{ getLecturerEmail(lecturer.staffCode) || '-' }}</p>
-                    <p v-if="getLecturerEmailDomain(lecturer.staffCode)" class="text-xs text-gray-400">{{ getLecturerEmailDomain(lecturer.staffCode) }}</p>
-                  </div>
+                <!-- Track Column -->
+                <td class="px-4 py-3 text-center">
+                  <span 
+                    class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full"
+                    :class="getTrackBadgeClass(lecturer.domainScoreName)"
+                  >
+                    {{ lecturer.domainScoreName || 'Teaching' }}
+                  </span>
+                </td>
+                
+                <!-- Program Column -->
+                <td class="px-4 py-3 text-center">
+                  <NuxtLink 
+                    v-if="lecturer.programCode"
+                    :to="'/admin/kpi/program/' + lecturer.programCode.toLowerCase()"
+                    class="inline-flex px-2 py-0.5 text-xs font-bold rounded tracking-wider hover:ring-2 hover:ring-offset-1 transition-all"
+                    :class="getProgramBadgeClass(lecturer.programCode)"
+                    @click.stop
+                  >
+                    {{ lecturer.programCode }}
+                  </NuxtLink>
+                  <span v-else class="text-xs text-gray-300">—</span>
                 </td>
                 
                 <!-- Score Column -->
@@ -380,20 +584,6 @@
                 <!-- Behavior Column -->
                 <td class="px-4 py-3 text-center text-sm text-gray-600 bg-gray-50/50">
                   {{ lecturer.overallPerformance.behavior.toFixed(1) }}%
-                </td>
-                
-                <!-- Actions Column -->
-                <td class="px-4 py-3 text-center">
-                  <button 
-                    @click="navigateToDetail(lecturer.staffCode)"
-                    class="inline-flex items-center px-4 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-[#4697b9] to-[#005F99] rounded-lg hover:opacity-90 transition-opacity shadow-sm"
-                  >
-                    <svg class="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    View
-                  </button>
                 </td>
               </tr>
             </tbody>
@@ -442,7 +632,7 @@ import Chart from "chart.js/auto";
 import { computed, onMounted, ref, watch, onUnmounted, nextTick } from "vue";
 
 definePageMeta({
-  layout: false
+  layout: 'admin'
 });
 
 // Composables
@@ -491,10 +681,89 @@ const loading = ref(!hasInitialCache);
 const fetchError = ref<string | null>(null);
 const searchQuery = ref('');
 const selectedPerformanceLevel = ref('all');
+const selectedTrack = ref('all');
+const selectedProgram = ref('all');
 const selectedLecturer = ref<LecturerKpiData | null>(null);
 const currentPage = ref(1);
 const itemsPerPage = 20;
 const sortBy = ref('score-desc');
+
+// Available tracks computed from data
+const availableTracks = computed(() => {
+  const tracks = new Set<string>();
+  combinedKpiData.value.forEach(l => {
+    if (l.domainScoreName) tracks.add(l.domainScoreName);
+    else tracks.add('Teaching');
+  });
+  return Array.from(tracks).sort();
+});
+
+// Available programs computed from data
+const availablePrograms = computed(() => {
+  const programs = new Set<string>();
+  combinedKpiData.value.forEach(l => {
+    if (l.programCode) programs.add(l.programCode);
+  });
+  return Array.from(programs).sort();
+});
+
+// Program aggregates for Program Performance Summary cards
+const programAggregates = computed(() => {
+  const data = combinedKpiData.value;
+  if (data.length === 0) return [];
+  
+  const programMap = new Map<string, { count: number; totalScoreSum: number; academicSum: number; behaviorSum: number }>();
+  
+  data.forEach(l => {
+    const code = l.programCode || 'N/A';
+    if (code === 'N/A') return; // Skip lecturers without program
+    const existing = programMap.get(code) || { count: 0, totalScoreSum: 0, academicSum: 0, behaviorSum: 0 };
+    existing.count++;
+    existing.totalScoreSum += l.overallPerformance.totalScore;
+    existing.academicSum += l.overallPerformance.academicPerformance;
+    existing.behaviorSum += l.overallPerformance.behavior;
+    programMap.set(code, existing);
+  });
+  
+  return Array.from(programMap.entries())
+    .map(([programCode, info]) => ({
+      programCode,
+      count: info.count,
+      avgTotalScore: info.totalScoreSum / info.count,
+      avgAcademic: info.academicSum / info.count,
+      avgBehavior: info.behaviorSum / info.count
+    }))
+    .sort((a, b) => b.avgTotalScore - a.avgTotalScore);
+});
+
+// Active filter count
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (selectedProgram.value !== 'all') count++;
+  if (selectedTrack.value !== 'all') count++;
+  if (selectedPerformanceLevel.value !== 'all') count++;
+  if (searchQuery.value) count++;
+  return count;
+});
+
+// Clear all filters
+const clearAllFilters = () => {
+  selectedProgram.value = 'all';
+  selectedTrack.value = 'all';
+  selectedPerformanceLevel.value = 'all';
+  searchQuery.value = '';
+  currentPage.value = 1;
+};
+
+// Select program filter (from clicking program cards)
+const selectProgramFilter = (programCode: string) => {
+  if (selectedProgram.value === programCode) {
+    selectedProgram.value = 'all'; // Toggle off
+  } else {
+    selectedProgram.value = programCode;
+  }
+  currentPage.value = 1;
+};
 const loadingDetailedData = ref(false);
 const lecturerDetailedData = ref<any>(null);
 
@@ -532,6 +801,10 @@ const navigateToDetail = (staffCode: string) => {
 // Chart ref for performance distribution pie chart
 const performanceDistributionChart = ref<HTMLCanvasElement | null>(null);
 let distributionChartInstance: Chart | null = null;
+
+// Chart ref for track distribution pie chart
+const trackDistributionChart = ref<HTMLCanvasElement | null>(null);
+let trackDistributionChartInstance: Chart | null = null;
 
 // Performance level counts computed
 const performanceLevelCounts = computed(() => {
@@ -585,6 +858,49 @@ const initDistributionChart = () => {
       maintainAspectRatio: true,
       plugins: {
         legend: { display: false }
+      }
+    }
+  });
+};
+
+// Initialize track distribution pie chart
+const initTrackDistributionChart = () => {
+  if (!trackDistributionChart.value) return;
+  
+  if (trackDistributionChartInstance) {
+    trackDistributionChartInstance.destroy();
+  }
+  
+  const groups = trackSafeAggregates.value.trackGroups;
+  if (groups.length === 0) return;
+  
+  trackDistributionChartInstance = new Chart(trackDistributionChart.value, {
+    type: 'pie',
+    data: {
+      labels: groups.map(g => g.name),
+      datasets: [{
+        data: groups.map(g => g.count),
+        backgroundColor: groups.map(g => g.color),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context: any) {
+              const label = context.label || '';
+              const value = context.raw || 0;
+              const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+              const pct = ((value / total) * 100).toFixed(0);
+              return `${label}: ${value} lecturers (${pct}%)`;
+            }
+          }
+        }
       }
     }
   });
@@ -712,9 +1028,19 @@ const statistics = computed(() => {
   };
 });
 
-// Filtered lecturers based on search and performance level
+// Filtered lecturers based on search, program, and performance level
 const filteredLecturers = computed(() => {
   let result = combinedKpiData.value;
+  
+  // Filter by program
+  if (selectedProgram.value !== 'all') {
+    result = result.filter(l => l.programCode === selectedProgram.value);
+  }
+  
+  // Filter by track
+  if (selectedTrack.value !== 'all') {
+    result = result.filter(l => (l.domainScoreName || 'Teaching') === selectedTrack.value);
+  }
   
   // Filter by performance level
   if (selectedPerformanceLevel.value !== 'all') {
@@ -776,39 +1102,48 @@ const kpiCategories = computed(() => {
   ];
 });
 
-// Average KPI categories across ALL lecturers (for summary cards)
-const averageKpiCategories = computed(() => {
+// Track-safe aggregate calculation
+// Uses only Total Score, Academic Performance, and Behavior which are already track-normalized
+// Also provides per-track group averages for meaningful domain-level comparison
+const trackSafeAggregates = computed(() => {
   const data = combinedKpiData.value;
-  if (data.length === 0) return [];
+  if (data.length === 0) return {
+    avgTotal: 0, avgAcademic: 0, avgBehavior: 0,
+    trackGroups: []
+  };
   
-  // Calculate average scores for each domain
-  // Note: domainScores are PERCENTAGE values (0-100%), not raw points
-  // To get points: (score% / 100) * weight
-  const avgDomain1 = data.reduce((sum, l) => sum + (l.domainScores?.domain1 || 0), 0) / data.length;
-  const avgDomain2 = data.reduce((sum, l) => sum + (l.domainScores?.domain2 || 0), 0) / data.length;
-  const avgDomain3 = data.reduce((sum, l) => sum + (l.domainScores?.domain3 || 0), 0) / data.length;
-  const avgDomain4 = data.reduce((sum, l) => sum + (l.domainScores?.domain4 || 0), 0) / data.length;
-  const avgDomain5 = data.reduce((sum, l) => sum + (l.domainScores?.domain5 || 0), 0) / data.length;
+  // Overall averages (track-safe: Total Score is already normalized regardless of track)
+  const avgTotal = data.reduce((sum, l) => sum + l.overallPerformance.totalScore, 0) / data.length;
+  const avgAcademic = data.reduce((sum, l) => sum + l.overallPerformance.academicPerformance, 0) / data.length;
+  const avgBehavior = data.reduce((sum, l) => sum + l.overallPerformance.behavior, 0) / data.length;
   
-  // Get weights from first lecturer (should be same for all)
-  const weights = data[0]?.domainWeights || { domain1: 35, domain2: 40, domain3: 10, domain4: 5, domain5: 10 };
+  // Group by track for per-track averages
+  const trackMap = new Map<string, { count: number; totalScore: number; color: string }>();
+  const trackColors: Record<string, string> = {
+    'Teaching': '#2563eb',
+    'Research': '#0891b2',
+    'Academic Service': '#059669',
+    'Academic Administration': '#7c3aed'
+  };
   
-  // Convert percentage scores to actual points
-  return [
-    { name: 'Teaching', weight: weights.domain1, score: avgDomain1, pointsEarned: (avgDomain1 / 100) * weights.domain1, color: '#005F99' },
-    { name: 'Research', weight: weights.domain2, score: avgDomain2, pointsEarned: (avgDomain2 / 100) * weights.domain2, color: '#00BFFF' },
-    { name: 'Academic Service', weight: weights.domain3, score: avgDomain3, pointsEarned: (avgDomain3 / 100) * weights.domain3, color: '#7FD6D6' },
-    { name: 'Administration', weight: weights.domain4, score: avgDomain4, pointsEarned: (avgDomain4 / 100) * weights.domain4, color: '#7c3aed' },
-    { name: 'Arts & Culture', weight: weights.domain5, score: avgDomain5, pointsEarned: (avgDomain5 / 100) * weights.domain5, color: '#8A8BE6' }
-  ];
-});
-
-// Display KPI categories: individual when lecturer selected, average when not
-const displayKpiCategories = computed(() => {
-  if (selectedLecturer.value) {
-    return kpiCategories.value;
-  }
-  return averageKpiCategories.value;
+  data.forEach(l => {
+    const track = l.domainScoreName || 'Teaching';
+    const existing = trackMap.get(track) || { count: 0, totalScore: 0, color: trackColors[track] || '#6b7280' };
+    existing.count++;
+    existing.totalScore += l.overallPerformance.totalScore;
+    trackMap.set(track, existing);
+  });
+  
+  const trackGroups = Array.from(trackMap.entries())
+    .map(([name, info]) => ({
+      name,
+      count: info.count,
+      avgScore: info.totalScore / info.count,
+      color: info.color
+    }))
+    .sort((a, b) => b.count - a.count);
+  
+  return { avgTotal, avgAcademic, avgBehavior, trackGroups };
 });
 
 // Format date range for selected evaluation period
@@ -850,6 +1185,48 @@ const getPerformanceBadgeClass = (level: string) => {
     case 'Very Poor': return 'bg-red-100 text-red-800';
     default: return 'bg-gray-100 text-gray-800';
   }
+};
+
+// Track badge styling
+const getTrackBadgeClass = (track: string) => {
+  switch (track as string) {
+    case 'Teaching': return 'bg-blue-100 text-blue-700';
+    case 'Research': return 'bg-cyan-100 text-cyan-700';
+    case 'Academic Service': return 'bg-emerald-100 text-emerald-700';
+    case 'Academic Administration': return 'bg-purple-100 text-purple-700';
+    default: return 'bg-gray-100 text-gray-600';
+  }
+};
+
+// Program badge styling — matches dashboard programStyles colors
+const getProgramBadgeClass = (programCode: string) => {
+  const programColors: Record<string, string> = {
+    'ACC': 'bg-[#E0EFFF] text-[#3F63C5]',
+    'BA': 'bg-[#D3F3E3] text-[#0D875E]',
+    'ECO': 'bg-[#F1E8FD] text-[#7C51AA]',
+    'TRM': 'bg-[#FFEBD3] text-[#EC5101]',
+    'AVI': 'bg-[#DEF3FA] text-[#1D7DAA]',
+    'HRM': 'bg-[#FFE2F1] text-[#CD3774]',
+    'LOG': 'bg-[#FCE2E5] text-[#EC5101]',
+    'DEAN': 'bg-[#F6F3FC] text-[#7C51AA]'
+  };
+  return programColors[programCode] || 'bg-gray-100 text-gray-600';
+};
+
+// Score color class for program cards
+const getScoreColorClass = (score: number) => {
+  if (score >= 85) return 'text-emerald-600';
+  if (score >= 75) return 'text-blue-600';
+  if (score >= 65) return 'text-amber-600';
+  return 'text-red-600';
+};
+
+// Score bar class for program cards
+const getScoreBarClass = (score: number) => {
+  if (score >= 85) return 'bg-emerald-400';
+  if (score >= 75) return 'bg-blue-400';
+  if (score >= 65) return 'bg-amber-400';
+  return 'bg-red-400';
 };
 
 // Avatar color classes based on index
@@ -1284,7 +1661,7 @@ const onEvaluationPeriodChange = async () => {
 };
 
 // Reset page when filters change
-watch([searchQuery, selectedPerformanceLevel, sortBy], () => {
+watch([searchQuery, selectedTrack, selectedPerformanceLevel, selectedProgram, sortBy], () => {
   currentPage.value = 1;
 });
 
@@ -1297,11 +1674,12 @@ watch(selectedLecturer, () => {
   }
 });
 
-// Watch combined KPI data to update distribution chart
+// Watch combined KPI data to update distribution charts
 watch(combinedKpiData, () => {
   if (combinedKpiData.value.length > 0) {
     nextTick(() => {
       initDistributionChart();
+      initTrackDistributionChart();
     });
   }
 }, { immediate: false });
@@ -1335,9 +1713,10 @@ onMounted(async () => {
       // Fetch lecturer emails IMMEDIATELY - this is important for showing emails
       await fetchLecturerEmails()
       
-      // Initialize distribution chart
+      // Initialize distribution charts
       nextTick(() => {
         initDistributionChart();
+        initTrackDistributionChart();
       });
       
       return // Don't wait for anything else - show cached data NOW
@@ -1378,9 +1757,10 @@ onMounted(async () => {
     // Login to API for detailed data fetching
     await login()
     
-    // Initialize distribution chart after data is loaded
+    // Initialize distribution charts after data is loaded
     nextTick(() => {
       initDistributionChart();
+      initTrackDistributionChart();
     });
     
     // Unregister datalabels plugin if present
@@ -1403,6 +1783,9 @@ onUnmounted(() => {
   }
   if (distributionChartInstance) {
     distributionChartInstance.destroy();
+  }
+  if (trackDistributionChartInstance) {
+    trackDistributionChartInstance.destroy();
   }
 });
 </script>
