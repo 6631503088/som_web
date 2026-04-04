@@ -19,21 +19,19 @@
       <nav class="flex-1 px-4 py-4 overflow-y-auto">
         <ul class="space-y-0.5">
           <li>
-            <NuxtLink to="/admin/dashboard" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path === '/admin/dashboard' }">
+            <NuxtLink to="/admin/kpi" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path.startsWith('/admin/kpi') }">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              Faculties
+              Performance Analytics
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink to="/admin/programs" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path === '/admin/programs' }">
+            <NuxtLink to="/admin/program-analytics" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path.startsWith('/admin/program-analytics') || $route.path.startsWith('/admin/kpi/program') }">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              Programs
+              Program Analytics
             </NuxtLink>
           </li>
           <li>
@@ -41,20 +39,12 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
-              Users Management
-            </NuxtLink>
-          </li>
-          <li>
-            <NuxtLink to="/admin/kpi" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path === '/admin/kpi' }">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              KPI Overview
+              Lecturer Directory
             </NuxtLink>
           </li>
 
-          <!-- Profile and Budget visible only when on /admin/profile OR /admin/budget -->
-          <template v-if="$route.path === '/admin/profile' || $route.path === '/admin/budget'">
+          <!-- Profile and Budget - DISABLED per stakeholder request (remove v-if="false" to re-enable) -->
+          <template v-if="false && ($route.path === '/admin/profile' || $route.path === '/admin/budget')">
             <li>
               <NuxtLink to="/admin/profile" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path === '/admin/profile' }">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,7 +81,7 @@
         </div>
         <div>
           <p class="text-sm font-medium text-white">{{ userData?.displayName || 'User' }}</p>
-          <p class="text-xs text-[#7fc6de]/80">Administrator</p>
+          <p class="text-xs text-[#7fc6de]/80">Executive</p>
         </div>
         <button
           @click="logout"
@@ -156,30 +146,28 @@
         <ul class="space-y-1">
           <li>
             <NuxtLink
-              to="/admin/dashboard"
+              to="/admin/kpi"
               @click="showSidebar = false"
               class="flex items-center px-3 py-2.5 text-white/90 hover:text-white hover:bg-[#035e80]/50 rounded-lg transition-all duration-200"
-              :class="{ 'bg-[#035475]/60 text-white shadow-sm': $route.path === '/admin/dashboard' }"
+              :class="{ 'bg-[#035475]/60 text-white shadow-sm': $route.path.startsWith('/admin/kpi') }"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              Faculties
+              Performance Analytics
             </NuxtLink>
           </li>
           <li>
             <NuxtLink
-              to="/admin/programs"
+              to="/admin/program-analytics"
               @click="showSidebar = false"
               class="flex items-center px-3 py-2.5 text-white/90 hover:text-white hover:bg-[#035e80]/50 rounded-lg transition-all duration-200"
-              :class="{ 'bg-[#035475]/60 text-white shadow-sm': $route.path === '/admin/programs' }"
+              :class="{ 'bg-[#035475]/60 text-white shadow-sm': $route.path.startsWith('/admin/program-analytics') || $route.path.startsWith('/admin/kpi/program') }"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              Programs
+              Program Analytics
             </NuxtLink>
           </li>
           <li>
@@ -192,23 +180,11 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
-              Users Management
+              Lecturer Directory
             </NuxtLink>
           </li>
-          <li>
-            <NuxtLink
-              to="/admin/kpi"
-              @click="showSidebar = false"
-              class="flex items-center px-3 py-2.5 text-white/90 hover:text-white hover:bg-[#035e80]/50 rounded-lg transition-all duration-200"
-              :class="{ 'bg-[#035475]/60 text-white shadow-sm': $route.path === '/admin/kpi' }"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              KPI Overview
-            </NuxtLink>
-          </li>
-          <li>
+          <!-- Profile - DISABLED per stakeholder request (remove v-if="false" to re-enable) -->
+          <li v-if="false">
             <NuxtLink
               to="/admin/profile"
               @click="showSidebar = false"
@@ -221,7 +197,8 @@
               Profile
             </NuxtLink>
           </li>
-          <li>
+          <!-- Budget - DISABLED per stakeholder request (remove v-if="false" to re-enable) -->
+          <li v-if="false">
             <NuxtLink
               to="/admin/budget"
               @click="showSidebar = false"
@@ -249,7 +226,7 @@
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-white truncate">{{ userData?.displayName || 'User' }}</p>
-            <p class="text-xs text-[#7fc6de]/80">Administrator</p>
+            <p class="text-xs text-[#7fc6de]/80">Executive</p>
           </div>
           <button
             @click="logout"
