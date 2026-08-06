@@ -4,7 +4,7 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
       <div>
         <div class="flex items-center gap-3 mb-1">
-          <button @click="router.push('/admin/kpi')" class="text-gray-400 hover:text-[#1e3a5f] transition-colors">
+          <button @click="router.push('/admin/program-analytics')" class="text-gray-400 hover:text-[#1e3a5f] transition-colors">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
             </svg>
@@ -21,27 +21,50 @@
         </p>
       </div>
       <!-- Evaluation Period Selector -->
-      <div class="relative w-full sm:w-48 lg:w-auto">
-        <select
-          v-model="selectedEvaluationPeriod"
-          @change="onEvaluationPeriodChange"
-          class="w-full appearance-none bg-white border-0 rounded-lg py-2.5 pl-3 pr-8 shadow-sm ring-2 ring-[#4697b9] text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#4697b9]"
-          :disabled="isLoadingPeriods"
+      <div class="flex items-center gap-3">
+        <button 
+          @click="handleRefresh"
+          :disabled="refreshing"
+          class="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#004086] transition-colors flex items-center gap-2 disabled:opacity-50"
         >
-          <option v-if="isLoadingPeriods" disabled>Loading periods...</option>
-          <option 
-            v-for="period in evaluationPeriods" 
-            :key="period.evaluateid" 
-            :value="period.evaluateid"
-          >
-            Round {{ period.evaluatename }}
-          </option>
-        </select>
-        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+          <svg :class="{'animate-spin': refreshing}" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
+          {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+        </button>
+        <div class="relative w-full sm:w-48 lg:w-auto">
+          <select
+            v-model="selectedEvaluationPeriod"
+            @change="onEvaluationPeriodChange"
+            class="w-full appearance-none bg-white border-2 border-[#4697b9] rounded-lg py-2.5 pl-3 pr-8 shadow-sm text-xs sm:text-sm font-medium text-[#004086] focus:outline-none focus:ring-2 focus:ring-[#4697b9]"
+            :disabled="isLoadingPeriods"
+          >
+            <option v-if="isLoadingPeriods" disabled>Loading periods...</option>
+            <option 
+              v-for="period in evaluationPeriods" 
+              :key="period.evaluateid" 
+              :value="period.evaluateid"
+            >
+              Round {{ period.evaluatename }}
+            </option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Loading Banner (data being built) -->
+    <div v-if="dataIncomplete && !loading" class="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+      <svg class="h-5 w-5 text-amber-500 flex-shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <div>
+        <p class="text-sm font-medium text-amber-800">KPI data is loading from MFU API...</p>
+        <p class="text-xs text-amber-600">Scores will appear automatically once ready. This may take 30-60 seconds.</p>
       </div>
     </div>
 
@@ -105,11 +128,10 @@
               <span class="w-32 text-xs font-medium text-gray-700 truncate">{{ track.name }}</span>
               <div class="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
                 <div class="h-full rounded-full transition-all duration-500 flex items-center justify-end pr-2"
-                  :style="{ width: programLecturers.length > 0 ? Math.max((track.count / programLecturers.length * 100), track.count > 0 ? 15 : 0) + '%' : '0%', backgroundColor: track.color }">
-                  <span v-if="track.count > 0" class="text-xs font-bold text-white drop-shadow-sm">{{ track.count }}</span>
+                  :style="{ width: Math.max((programLecturers.length > 0 ? (track.count / programLecturers.length * 100) : 0), 8) + '%', backgroundColor: track.color }">
+                  <span class="text-xs font-bold text-white drop-shadow-sm">{{ track.count }}</span>
                 </div>
               </div>
-              <span class="w-16 text-xs text-gray-500 text-right font-medium">{{ track.avgScore.toFixed(1) }}%</span>
             </div>
           </div>
         </div>
@@ -153,7 +175,14 @@
             <tbody class="divide-y divide-gray-100">
               <tr v-if="programLecturers.length === 0">
                 <td colspan="7" class="px-4 py-12 text-center text-gray-500">
-                  No lecturers found for this program
+                  <template v-if="dataIncomplete">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[#004086] mx-auto mb-3"></div>
+                    <p class="text-sm">Loading lecturer data from MFU API...</p>
+                    <p class="text-xs text-gray-400 mt-1">This may take 30-60 seconds</p>
+                  </template>
+                  <template v-else>
+                    No lecturers found for this program
+                  </template>
                 </td>
               </tr>
               <tr 
@@ -205,9 +234,7 @@
 <script setup lang="ts">
 import { useFirebaseAuth } from '@/composables/useFirebaseAuth';
 import { useEvaluationPeriods } from '@/composables/useEvaluationPeriods';
-import { useKpiCache } from '@/composables/useKpiCache';
-import { useAdminKpiApi, type LecturerKpiData } from '@/composables/useAdminKpiApi';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 definePageMeta({
   layout: 'admin'
@@ -220,16 +247,16 @@ const programCode = (route.params.programCode as string)?.toUpperCase() || '';
 // Composables
 const { user } = useFirebaseAuth();
 const { evaluationPeriods, loading: isLoadingPeriods, fetchEvaluationPeriods, activeEvaluationPeriod } = useEvaluationPeriods();
-const { cachedKpiData, hasCachedData, initializeFromStorage, refreshCache } = useKpiCache();
-const { fetchAllLecturersKpi, allLecturersKpi, isLoading: kpiLoading, getPerformanceLevel } = useAdminKpiApi();
+
+const runtimeConfig = useRuntimeConfig();
+const BACKEND_URL = runtimeConfig.public.apiBase || runtimeConfig.public.backendApiUrl || 'https://som.mlbbshop.app';
 
 const selectedEvaluationPeriod = ref<number | null>(null);
 const loading = ref(true);
-
-// Initialize from cache immediately
-if (typeof window !== 'undefined') {
-  initializeFromStorage();
-}
+const refreshing = ref(false);
+const dataIncomplete = ref(false);
+const programLecturers = ref<any[]>([]);
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Program name lookup
 const programNames: Record<string, string> = {
@@ -244,19 +271,6 @@ const programNames: Record<string, string> = {
 };
 const programName = programNames[programCode] || programCode;
 
-// Combined KPI data source
-const combinedKpiData = computed(() => {
-  if (cachedKpiData.value && cachedKpiData.value.length > 0) {
-    return cachedKpiData.value;
-  }
-  return allLecturersKpi.value || [];
-});
-
-// Filter lecturers belonging to this program
-const programLecturers = computed(() => {
-  return combinedKpiData.value.filter(l => l.programCode === programCode);
-});
-
 // Sort by score descending
 const sortedProgramLecturers = computed(() => {
   return [...programLecturers.value].sort((a, b) => b.overallPerformance.totalScore - a.overallPerformance.totalScore);
@@ -268,9 +282,9 @@ const programStats = computed(() => {
   if (data.length === 0) return { avgTotal: 0, avgAcademic: 0, avgBehavior: 0 };
   
   return {
-    avgTotal: data.reduce((sum, l) => sum + l.overallPerformance.totalScore, 0) / data.length,
-    avgAcademic: data.reduce((sum, l) => sum + l.overallPerformance.academicPerformance, 0) / data.length,
-    avgBehavior: data.reduce((sum, l) => sum + l.overallPerformance.behavior, 0) / data.length,
+    avgTotal: data.reduce((sum: number, l: any) => sum + l.overallPerformance.totalScore, 0) / data.length,
+    avgAcademic: data.reduce((sum: number, l: any) => sum + l.overallPerformance.academicPerformance, 0) / data.length,
+    avgBehavior: data.reduce((sum: number, l: any) => sum + l.overallPerformance.behavior, 0) / data.length,
   };
 });
 
@@ -278,11 +292,11 @@ const programStats = computed(() => {
 const performanceLevels = computed(() => {
   const data = programLecturers.value;
   return [
-    { name: 'Excellent', count: data.filter(l => l.performanceLevel === 'Excellent').length, barClass: 'bg-yellow-400', textClass: 'text-yellow-700' },
-    { name: 'Good', count: data.filter(l => l.performanceLevel === 'Good').length, barClass: 'bg-emerald-400', textClass: 'text-emerald-700' },
-    { name: 'Moderate', count: data.filter(l => l.performanceLevel === 'Moderate').length, barClass: 'bg-blue-400', textClass: 'text-blue-700' },
-    { name: 'Poor', count: data.filter(l => l.performanceLevel === 'Poor').length, barClass: 'bg-orange-400', textClass: 'text-orange-700' },
-    { name: 'Very Poor', count: data.filter(l => l.performanceLevel === 'Very Poor').length, barClass: 'bg-red-400', textClass: 'text-red-700' },
+    { name: 'Excellent', count: data.filter((l: any) => l.performanceLevel === 'Excellent').length, barClass: 'bg-yellow-400', textClass: 'text-yellow-700' },
+    { name: 'Good', count: data.filter((l: any) => l.performanceLevel === 'Good').length, barClass: 'bg-emerald-400', textClass: 'text-emerald-700' },
+    { name: 'Moderate', count: data.filter((l: any) => l.performanceLevel === 'Moderate').length, barClass: 'bg-blue-400', textClass: 'text-blue-700' },
+    { name: 'Poor', count: data.filter((l: any) => l.performanceLevel === 'Poor').length, barClass: 'bg-orange-400', textClass: 'text-orange-700' },
+    { name: 'Very Poor', count: data.filter((l: any) => l.performanceLevel === 'Very Poor').length, barClass: 'bg-red-400', textClass: 'text-red-700' },
   ];
 });
 
@@ -290,29 +304,61 @@ const performanceLevels = computed(() => {
 const trackDistribution = computed(() => {
   const data = programLecturers.value;
   const trackColors: Record<string, string> = {
-    'Teaching': '#2563eb',
-    'Research': '#0891b2',
-    'Academic Service': '#059669',
-    'Academic Administration': '#7c3aed'
+    'Teaching': '#4b5563', // Assuming slate-600 from user screenshot for Teaching
+    'Academic Service': '#10b981', // emerald-500
+    'Research': '#0ea5e9', // sky-500
+    'Administration': '#8b5cf6', // violet-500
+    'Arts & Culture': '#ec4899' // pink-500
   };
   
+  const trackNames = ['Teaching', 'Academic Service', 'Research', 'Administration', 'Arts & Culture'];
   const trackMap = new Map<string, { count: number; totalScore: number }>();
-  data.forEach(l => {
-    const track = l.domainScoreName || 'Teaching';
-    const existing = trackMap.get(track) || { count: 0, totalScore: 0 };
+  
+  // Pre-fill all tracks with 0
+  trackNames.forEach(name => {
+    trackMap.set(name, { count: 0, totalScore: 0 });
+  });
+
+  data.forEach((l: any) => {
+    let rawTrack = l.domainScoreName;
+    if (!rawTrack || typeof rawTrack !== 'string') rawTrack = 'Teaching';
+    
+    let track = rawTrack.trim();
+    if (track === 'Academic Administration') track = 'Administration';
+    if (track === 'Arts and Culture') track = 'Arts & Culture';
+    
+    if (!trackMap.has(track)) {
+      trackMap.set(track, { count: 0, totalScore: 0 });
+    }
+    
+    const existing = trackMap.get(track)!;
     existing.count++;
     existing.totalScore += l.overallPerformance.totalScore;
-    trackMap.set(track, existing);
   });
   
-  return Array.from(trackMap.entries())
-    .map(([name, info]) => ({
+  // Map standard ones first, then any extra
+  const result = trackNames.map(name => {
+    const info = trackMap.get(name)!;
+    return {
       name,
       count: info.count,
-      avgScore: info.totalScore / info.count,
+      avgScore: info.count > 0 ? info.totalScore / info.count : 0,
       color: trackColors[name] || '#6b7280'
-    }))
-    .sort((a, b) => b.count - a.count);
+    };
+  });
+  
+  trackMap.forEach((info, name) => {
+    if (!trackNames.includes(name)) {
+      result.push({
+        name,
+        count: info.count,
+        avgScore: info.count > 0 ? info.totalScore / info.count : 0,
+        color: trackColors[name] || '#6b7280'
+      });
+    }
+  });
+
+  return result;
 });
 
 // Domain averages for the program
@@ -324,12 +370,157 @@ const domainAverages = computed(() => {
   const domainColors = ['#005F99', '#00BFFF', '#7FD6D6', '#7c3aed', '#8A8BE6'];
   
   return domainLabels.map((name, i) => {
-    const domainKey = `domain${i + 1}` as keyof typeof data[0]['domainScores'];
-    const avgScore = data.reduce((sum, l) => sum + (l.domainScores[domainKey] || 0), 0) / data.length;
-    const avgWeight = data.reduce((sum, l) => sum + (l.domainWeights[domainKey] || 0), 0) / data.length;
+    const domainKey = `domain${i + 1}` as string;
+    const avgScore = data.reduce((sum: number, l: any) => sum + (l.domainScores?.[domainKey] || 0), 0) / data.length;
+    const avgWeight = data.reduce((sum: number, l: any) => sum + (l.domainWeights?.[domainKey] || 0), 0) / data.length;
     return { name, avgScore, avgWeight, color: domainColors[i] };
   });
 });
+
+// Get Firebase token
+const getToken = async (): Promise<string | null> => {
+  let attempts = 0;
+  while (!user.value && attempts < 20) { await new Promise(r => setTimeout(r, 250)); attempts++; }
+  if (!user.value) return null;
+  try { return await user.value.getIdToken(); } catch { return null; }
+};
+
+// Fetch program data from server-side cache
+const fetchProgramData = async () => {
+  loading.value = true;
+  dataIncomplete.value = false;
+  stopPolling();
+
+  try {
+    const token = await getToken();
+    if (!token) { loading.value = false; return; }
+    const evalId = selectedEvaluationPeriod.value || 9;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    const response = await fetch(
+      `${BACKEND_URL}/api/admin/kpi/cached?evaluateid=${evalId}&program_code=${programCode}`,
+      {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        signal: controller.signal
+      }
+    );
+    clearTimeout(timeoutId);
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+    const result = await response.json();
+
+    if (result.success && result.data) {
+      programLecturers.value = result.data.lecturers || [];
+      
+      // If data is not complete, poll for updates
+      if (!result.data.complete) {
+        dataIncomplete.value = true;
+        startPolling(evalId, token);
+      } else {
+        dataIncomplete.value = false;
+      }
+    }
+  } catch (err: any) {
+    console.error('[ProgramDetail] Error fetching data:', err);
+    // If server cache isn't ready, start polling
+    dataIncomplete.value = true;
+    const token = await getToken();
+    if (token) {
+      startPolling(selectedEvaluationPeriod.value || 9, token);
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+// Poll for complete data
+const startPolling = (evalId: number, token: string) => {
+  stopPolling();
+  let pollCount = 0;
+  const maxPolls = 12; // 2 minutes max
+  
+  const poll = async () => {
+    if (pollCount >= maxPolls) {
+      dataIncomplete.value = false;
+      return;
+    }
+    pollCount++;
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
+      const response = await fetch(
+        `${BACKEND_URL}/api/admin/kpi/cached?evaluateid=${evalId}&program_code=${programCode}`,
+        {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          programLecturers.value = result.data.lecturers || [];
+          
+          if (result.data.complete && programLecturers.value.length > 0) {
+            dataIncomplete.value = false;
+            stopPolling();
+            return;
+          }
+        }
+      }
+    } catch {
+      // Ignore poll errors
+    }
+    
+    pollTimer = setTimeout(poll, 10000);
+  };
+  
+  pollTimer = setTimeout(poll, 8000);
+};
+
+const stopPolling = () => {
+  if (pollTimer) {
+    clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+};
+
+// Refresh handler
+const handleRefresh = async () => {
+  refreshing.value = true;
+  
+  try {
+    const token = await getToken();
+    if (!token) { refreshing.value = false; return; }
+    const evalId = selectedEvaluationPeriod.value || 9;
+    
+    // Trigger background cache refresh
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      await fetch(`${BACKEND_URL}/api/admin/kpi/cache/refresh?evaluateid=${evalId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+    } catch {
+      // Even if refresh request fails, continue polling
+    }
+    
+    dataIncomplete.value = true;
+    startPolling(evalId, token);
+    
+    setTimeout(() => { refreshing.value = false; }, 2000);
+  } catch {
+    refreshing.value = false;
+  }
+};
 
 // Navigation
 const navigateToDetail = (staffCode: string) => {
@@ -339,7 +530,11 @@ const navigateToDetail = (staffCode: string) => {
   });
 };
 
+const onEvaluationPeriodChange = () => fetchProgramData();
+
 // Helpers
+const getPerformanceLevel = (s: number) => s >= 85 ? 'Excellent' : s >= 75 ? 'Good' : s >= 65 ? 'Moderate' : s >= 55 ? 'Poor' : 'Very Poor';
+
 const avatarColors = [
   'bg-gradient-to-br from-blue-500 to-blue-600',
   'bg-gradient-to-br from-emerald-500 to-emerald-600',
@@ -385,7 +580,7 @@ const getProgramBadgeClass = (code: string) => {
     'TRM': 'bg-[#FFEBD3] text-[#EC5101]',
     'AVI': 'bg-[#DEF3FA] text-[#1D7DAA]',
     'HRM': 'bg-[#FFE2F1] text-[#CD3774]',
-    'LOG': 'bg-[#FCE2E5] text-[#EC5101]',
+    'LOG': 'bg-[#FFF3D6] text-[#B8860B]',
     'DEAN': 'bg-[#F6F3FC] text-[#7C51AA]'
   };
   return colors[code] || 'bg-gray-100 text-gray-600';
@@ -398,46 +593,23 @@ const getScoreColorClass = (score: number) => {
   return 'text-red-600';
 };
 
-const onEvaluationPeriodChange = async () => {
-  const evalId = selectedEvaluationPeriod.value || 9;
-  loading.value = true;
-  try {
-    await refreshCache(evalId);
-  } catch (err) {
-    console.error('[Program KPI] Error loading period data:', err);
-  } finally {
-    loading.value = false;
-  }
-};
-
 // Initialize
 onMounted(async () => {
-  initializeFromStorage();
-
-  if (hasCachedData()) {
-    loading.value = false;
-    fetchEvaluationPeriods().then(() => {
-      if (!selectedEvaluationPeriod.value && activeEvaluationPeriod.value) {
-        selectedEvaluationPeriod.value = activeEvaluationPeriod.value.evaluateid;
-      }
-    });
-    return;
-  }
-
-  // No cache — fetch fresh
-  let attempts = 0;
-  while (!user.value && attempts < 20) {
-    await new Promise(resolve => setTimeout(resolve, 250));
-    attempts++;
-  }
-
   await fetchEvaluationPeriods();
-  if (!selectedEvaluationPeriod.value && activeEvaluationPeriod.value) {
+  
+  // Use round from query param (passed from program-analytics overview) if available
+  const roundFromQuery = route.query.round ? Number(route.query.round) : null;
+  
+  if (roundFromQuery && !isNaN(roundFromQuery)) {
+    selectedEvaluationPeriod.value = roundFromQuery;
+  } else if (activeEvaluationPeriod.value) {
     selectedEvaluationPeriod.value = activeEvaluationPeriod.value.evaluateid;
   }
+  
+  await fetchProgramData();
+});
 
-  const evalId = selectedEvaluationPeriod.value || 9;
-  await fetchAllLecturersKpi(evalId);
-  loading.value = false;
+onUnmounted(() => {
+  stopPolling();
 });
 </script>

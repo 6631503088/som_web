@@ -322,6 +322,29 @@
               </div>
             </div>
 
+            <!-- BOTTOM-RIGHT: Top Performers -->
+            <div class="bg-gray-50/60 rounded-lg p-4">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">🏆 Top Performers</h3>
+              <div v-if="topPerformersComputed.length" class="space-y-2">
+                <div v-for="(p, i) in topPerformersComputed" :key="'top-' + p.staffCode" 
+                  class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50/70 transition-colors cursor-pointer"
+                  @click="navigateTo({ path: `/admin/kpi/${p.staffCode}`, query: { round: String(selectedEvaluationPeriod) } })"
+                >
+                  <span class="w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center text-white flex-shrink-0" :class="['bg-amber-500','bg-gray-400','bg-amber-700','bg-blue-400','bg-blue-300'][i]">
+                    {{ i + 1 }}
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-medium text-gray-800 truncate">{{ p.staffName }}</p>
+                    <p class="text-[10px] text-gray-400">{{ p.programCode || p.program }}</p>
+                  </div>
+                  <span class="text-sm font-bold flex-shrink-0" :class="p.totalScore >= 80 ? 'text-emerald-600' : p.totalScore >= 60 ? 'text-blue-600' : 'text-orange-600'">
+                    {{ p.totalScore.toFixed(1) }}%
+                  </span>
+                </div>
+              </div>
+              <div v-else class="h-24 flex items-center justify-center text-gray-300 text-sm">No data</div>
+            </div>
+
           </div>
 
         </div>
@@ -1011,6 +1034,22 @@ const kpiCategories = computed(() => {
     { name: 'Administration', weight: domainWeights.domain4, score: domainScores.domain4, pointsEarned: (domainScores.domain4 / 100) * domainWeights.domain4, color: '#7c3aed' },
     { name: 'Arts & Culture', weight: domainWeights.domain5, score: domainScores.domain5, pointsEarned: (domainScores.domain5 / 100) * domainWeights.domain5, color: '#8A8BE6' }
   ];
+});
+
+// Top 5 Performers computed from combinedKpiData
+const topPerformersComputed = computed(() => {
+  const data = combinedKpiData.value;
+  if (!data || data.length === 0) return [];
+  return [...data]
+    .sort((a, b) => b.overallPerformance.totalScore - a.overallPerformance.totalScore)
+    .slice(0, 5)
+    .map(l => ({
+      staffCode: l.staffCode,
+      staffName: l.staffName,
+      programCode: l.programCode || l.program || '',
+      totalScore: l.overallPerformance.totalScore,
+      performanceLevel: l.performanceLevel
+    }));
 });
 
 // Track-safe aggregate calculation

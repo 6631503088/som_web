@@ -2,15 +2,15 @@
   <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
     <!-- Back Button & Header -->
     <div class="mb-6">
-      <NuxtLink 
-        to="/admin/kpi" 
+      <button 
+        @click="$router.back()" 
         class="inline-flex items-center text-[#4697b9] hover:text-[#005F99] transition-colors mb-4"
       >
         <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        Back to KPI Overview
-      </NuxtLink>
+        Back
+      </button>
       
       <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
@@ -623,7 +623,7 @@ import Chart from "chart.js/auto";
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { computed, onMounted, ref, watch, nextTick, onUnmounted, defineComponent } from "vue";
 
-definePageMeta({ layout: false });
+definePageMeta({ layout: 'admin' });
 
 // ------- ScoreTable helper component -------
 const ScoreTable = defineComponent({

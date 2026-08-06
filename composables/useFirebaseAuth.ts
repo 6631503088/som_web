@@ -16,7 +16,7 @@ const isValidEmail = (email: string): boolean => {
 export const roleRoutes = {
   admin: {
     prefix: '/admin',
-    default: '/admin/dashboard'
+    default: '/admin/kpi'
   },
   dean: {
     prefix: '/dean',
@@ -24,7 +24,7 @@ export const roleRoutes = {
   },
   lecturer: {
     prefix: '/lecturer',
-    default: '/lecturer/dashboard'
+    default: '/lecturer/kpi-overview'
   }
 } as const
 
@@ -228,7 +228,12 @@ export function useFirebaseAuth() {
           router.push('/unauthorized')
         }
       } else {
-        localStorage.setItem('lastPath', currentPath)
+        // Prevent redirecting to deprecated dashboards
+        if (currentPath === '/lecturer/dashboard' || currentPath === '/admin/dashboard') {
+          localStorage.removeItem('lastPath')
+        } else {
+          localStorage.setItem('lastPath', currentPath)
+        }
       }
     }
   }

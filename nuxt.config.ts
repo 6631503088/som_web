@@ -87,5 +87,9 @@ export default defineNuxtConfig({
     options: {
       strict: false
     }
+  },
+  routeRules: {
+    '/lecturer/dashboard': { redirect: '/lecturer/kpi-overview' },
+    '/admin/dashboard': { redirect: '/admin/kpi' }
   }
 })

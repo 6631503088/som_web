@@ -33,3 +33,4 @@ firebase-adminsdk*.json
 .fleet
 .idea
 
+api-backend/config/serviceAccountKey.json

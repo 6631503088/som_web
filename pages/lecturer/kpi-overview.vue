@@ -13,7 +13,7 @@
           </p>
         </div>
         
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
           <!-- Evaluation Period Selector -->
           <div class="flex items-center gap-2 bg-white rounded-xl shadow-lg px-4 py-2 border border-gray-100">
             <svg class="w-5 h-5 text-[#4697b9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1373,5 +1373,13 @@ onUnmounted(() => {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
 }
 </style>

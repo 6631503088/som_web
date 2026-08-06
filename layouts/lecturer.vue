@@ -17,7 +17,8 @@
       <!-- Navigation Menu -->
       <nav class="flex-1 px-4 py-6">
         <ul class="space-y-1">
-          <li>
+          <!-- Profile - DISABLED per stakeholder request (remove v-if="false" to re-enable) -->
+          <li v-if="false">
             <NuxtLink to="/lecturer/dashboard" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path === '/lecturer/dashboard' }">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -34,6 +35,15 @@
             </NuxtLink>
           </li>
           <li>
+            <NuxtLink to="/lecturer/score-comparison" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path === '/lecturer/score-comparison' }">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              Score Comparison
+            </NuxtLink>
+          </li>
+          <!-- Budget - DISABLED per stakeholder request (remove v-if="false" to re-enable) -->
+          <li v-if="false">
             <NuxtLink to="/lecturer/budget" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path === '/lecturer/budget' }">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -188,22 +198,29 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useFirebaseAuth } from '~/composables/useFirebaseAuth'
 
 // Menu items for mobile navigation
+// Profile and Budget DISABLED per stakeholder request
+// To re-enable, uncomment the Profile and Budget items below
 const menuItems = [
-  {
-    path: '/lecturer/dashboard',
-    label: 'Profile',
-    icon: 'svg-user'
-  },
+  // {
+  //   path: '/lecturer/dashboard',
+  //   label: 'Profile',
+  //   icon: 'svg-user'
+  // },
   {
     path: '/lecturer/kpi-overview',
     label: 'KPI',
     icon: 'svg-kpi'
   },
   {
-    path: '/lecturer/budget',
-    label: 'Budget',
-    icon: 'svg-budget'
-  }
+    path: '/lecturer/score-comparison',
+    label: 'Score Comparison',
+    icon: 'svg-kpi'
+  },
+  // {
+  //   path: '/lecturer/budget',
+  //   label: 'Budget',
+  //   icon: 'svg-budget'
+  // }
 ]
 
 // Define SVG components for icons

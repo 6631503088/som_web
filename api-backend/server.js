@@ -617,11 +617,14 @@ app.get('/api/admin/lecturers', verifyToken, requireAdmin, async (req, res) => {
         lp.phone,
         lp.location,
         lp.program,
+        lp.program_id,
         lp.position,
+        p.program_code,
         (SELECT COUNT(*) FROM lecturer_publications WHERE staff_code = lp.staff_code) as publication_count,
         (SELECT COUNT(*) FROM lecturer_education WHERE staff_code = lp.staff_code) as education_count,
         (SELECT COUNT(*) FROM lecturer_research_areas WHERE staff_code = lp.staff_code) as research_area_count
       FROM lecturer_profiles lp
+      LEFT JOIN programs p ON lp.program_id = p.program_id
       WHERE 1=1
     `;
     let params = [];
@@ -1548,7 +1551,7 @@ function computePerformanceLevel(totalScore) {
   return 'Very Poor';
 }
 
-// Helper: Fetch KPI data for a single lecturer from MFU API
+// Helper: Fetch KPI data for a single lecturer from MFU API (with timeout)
 async function fetchSingleKpiFromMfu(staffCode, evaluateId, mfuToken) {
   try {
     const headers = {
@@ -1560,10 +1563,16 @@ async function fetchSingleKpiFromMfu(staffCode, evaluateId, mfuToken) {
       'staffcode': staffCode
     };
 
+    // Add 15s timeout per request to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     const response = await fetch('https://eport.mfu.ac.th/api/master/get_Percentage', {
       method: 'GET',
-      headers
+      headers,
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const apiResponse = await response.json();
@@ -1599,14 +1608,18 @@ async function fetchSingleKpiFromMfu(staffCode, evaluateId, mfuToken) {
     }
     return null;
   } catch (err) {
-    console.error(`[AggregateKPI] Error fetching KPI for ${staffCode}:`, err.message);
+    if (err.name === 'AbortError') {
+      console.warn(`[AggregateKPI] Timeout fetching KPI for ${staffCode}`);
+    } else {
+      console.error(`[AggregateKPI] Error fetching KPI for ${staffCode}:`, err.message);
+    }
     return null;
   }
 }
 
-// Helper: Batch-fetch KPI data for multiple lecturers
+// Helper: Batch-fetch KPI data for multiple lecturers (larger batches for speed)
 async function fetchBatchKpi(staffList, evaluateId, mfuToken) {
-  const batchSize = 10;
+  const batchSize = 15;
   const results = [];
 
   for (let i = 0; i < staffList.length; i += batchSize) {
@@ -1616,10 +1629,77 @@ async function fetchBatchKpi(staffList, evaluateId, mfuToken) {
     for (const result of batchResults) {
       if (result) results.push(result);
     }
+    console.log(`[KpiCache] Batch ${Math.floor(i/batchSize)+1}/${Math.ceil(staffList.length/batchSize)} done (${results.length} results so far)`);
   }
 
   return results;
 }
+
+// Helper: Fetch activity counts from MFU E-Port API for a single lecturer
+async function fetchSingleActivityCounts(staffCode, evaluateId, mfuToken) {
+  const endpoints = [
+    'get_SelfDevelopment', 'get_Publication', 'get_ResearchStudy',
+    'get_AcademicService', 'get_UnderGraduate', 'get_Graduate', 'get_Committee'
+  ];
+  const counts = {
+    selfDevelopment: 0, publications: 0, researchStudies: 0,
+    academicService: 0, teachingUG: 0, teachingGrad: 0, committees: 0
+  };
+  const keys = ['selfDevelopment', 'publications', 'researchStudies', 'academicService', 'teachingUG', 'teachingGrad', 'committees'];
+
+  try {
+    const results = await Promise.all(endpoints.map(async (ep, idx) => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(`https://eport.mfu.ac.th/api/master/${ep}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${mfuToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'evaluateid': String(evaluateId),
+            'lang': 'en',
+            'staffcode': staffCode
+          },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          const data = await response.json();
+          return (data.code === 200 && Array.isArray(data.data)) ? data.data.length : 0;
+        }
+        return 0;
+      } catch { return 0; }
+    }));
+
+    results.forEach((count, idx) => { counts[keys[idx]] = count; });
+  } catch (err) {
+    console.warn(`[ActivityFetch] Error fetching activities for ${staffCode}:`, err.message);
+  }
+  return counts;
+}
+
+// Helper: Batch-fetch activity counts for all lecturers
+async function fetchBatchActivities(staffList, evaluateId, mfuToken) {
+  const batchSize = 5; // Smaller batches since each lecturer makes 7 API calls
+  const results = new Map();
+
+  for (let i = 0; i < staffList.length; i += batchSize) {
+    const batch = staffList.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(async s => ({
+        staffCode: s.staff_code,
+        counts: await fetchSingleActivityCounts(s.staff_code, evaluateId, mfuToken)
+      }))
+    );
+    batchResults.forEach(r => results.set(r.staffCode, r.counts));
+    console.log(`[ActivityCache] Batch ${Math.floor(i/batchSize)+1}/${Math.ceil(staffList.length/batchSize)} done (${results.size} lecturers)`);
+  }
+
+  return results;
+}
+
 
 // ═══════════════════════════════════════════════════════════
 // Phase 4: Server-Side KPI Cache
@@ -1647,14 +1727,15 @@ const kpiServerCache = {
     return entry;
   },
 
-  set(evaluateId, kpiData, programBreakdown) {
+  set(evaluateId, kpiData, programBreakdown, activityMap) {
     this.data.set(String(evaluateId), {
       timestamp: Date.now(),
       kpiData,
       programBreakdown,
+      activityMap: activityMap || new Map(),
       lecturerCount: kpiData.length
     });
-    console.log(`[KpiCache] Cached ${kpiData.length} lecturers for evaluateId=${evaluateId}`);
+    console.log(`[KpiCache] Cached ${kpiData.length} lecturers for evaluateId=${evaluateId} (activities: ${activityMap ? activityMap.size : 0})`);
   },
 
   clear(evaluateId) {
@@ -1709,7 +1790,7 @@ async function buildKpiCache(evaluateId) {
     }
   });
 
-  // 4. Compute program breakdown
+  // 4. Compute program breakdown — include ALL programs from DB
   const progMap = {};
   kpiData.forEach(k => {
     const code = k.programCode || 'N/A';
@@ -1722,22 +1803,122 @@ async function buildKpiCache(evaluateId) {
     progMap[code].behaviorSum += k.overallPerformance.behavior;
   });
 
-  const programBreakdown = Object.entries(progMap).map(([code, info]) => ({
-    programCode: code,
-    count: info.count,
-    avgTotalScore: info.totalScoreSum / info.count,
-    avgAcademic: info.academicSum / info.count,
-    avgBehavior: info.behaviorSum / info.count
-  })).sort((a, b) => b.avgTotalScore - a.avgTotalScore);
+  // Also include programs from DB that have lecturers but no KPI data
+  const [allPrograms] = await pool.query(
+    `SELECT p.program_code, p.program_name, COUNT(lp.staff_code) as lecturer_count
+     FROM programs p LEFT JOIN lecturer_profiles lp ON p.program_id = lp.program_id
+     WHERE p.is_active = TRUE
+     GROUP BY p.program_id ORDER BY p.program_name`
+  );
+  allPrograms.forEach(p => {
+    if (!progMap[p.program_code]) {
+      progMap[p.program_code] = {
+        count: 0, totalScoreSum: 0, academicSum: 0, behaviorSum: 0,
+        lecturerCount: p.lecturer_count,
+        programName: p.program_name,
+        noKpiData: true
+      };
+    } else {
+      progMap[p.program_code].lecturerCount = p.lecturer_count;
+      progMap[p.program_code].programName = p.program_name;
+    }
+  });
 
-  // 5. Store in cache
-  kpiServerCache.set(evaluateId, kpiData, programBreakdown);
+  const programBreakdown = Object.entries(progMap)
+    .filter(([code]) => code !== 'N/A')
+    .map(([code, info]) => ({
+      programCode: code,
+      programName: info.programName || code,
+      count: info.count,                        // lecturers with KPI data
+      lecturerCount: info.lecturerCount || info.count, // total lecturers in DB
+      avgTotalScore: info.count > 0 ? info.totalScoreSum / info.count : 0,
+      avgAcademic: info.count > 0 ? info.academicSum / info.count : 0,
+      avgBehavior: info.count > 0 ? info.behaviorSum / info.count : 0,
+      noKpiData: info.noKpiData || false
+    })).sort((a, b) => b.avgTotalScore - a.avgTotalScore || a.programCode.localeCompare(b.programCode));
+
+  // 5. Store in cache (without activity data initially for fast response)
+  kpiServerCache.set(evaluateId, kpiData, programBreakdown, null);
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`[KpiCache] Cache built in ${elapsed}s — ${kpiData.length} lecturers, ${programBreakdown.length} programs`);
 
+  // 6. Fetch activity counts in background (non-blocking)
+  fetchBatchActivities(staffList, evaluateId, mfuToken).then(activityMap => {
+    // Update cache with activity data
+    kpiServerCache.set(evaluateId, kpiData, programBreakdown, activityMap);
+    console.log(`[KpiCache] Activity data cached for ${activityMap.size} lecturers`);
+  }).catch(err => {
+    console.warn(`[KpiCache] Activity fetch failed (non-critical):`, err.message);
+  });
+
   return { kpiData, programBreakdown };
 }
+
+// GET /api/admin/kpi/program-overview?evaluateid=9
+// Fast endpoint that returns program breakdown from DB + cache without waiting for MFU API
+// This is called first for instant UI rendering
+app.get('/api/admin/kpi/program-overview', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { evaluateid = 9 } = req.query;
+
+    // Check if we have cached data
+    const cached = kpiServerCache.get(evaluateid);
+    if (cached) {
+      return res.json({
+        success: true,
+        data: {
+          evaluateId: evaluateid,
+          totalLecturers: cached.kpiData.length,
+          programBreakdown: cached.programBreakdown,
+          cacheAge: Math.round((Date.now() - cached.timestamp) / 1000) + 's',
+          cached: true,
+          complete: true
+        }
+      });
+    }
+
+    // No cache — return DB-only data for instant display, then trigger background build
+    const [allPrograms] = await pool.query(
+      `SELECT p.program_code, p.program_name, COUNT(lp.staff_code) as lecturer_count
+       FROM programs p LEFT JOIN lecturer_profiles lp ON p.program_id = lp.program_id
+       WHERE p.is_active = TRUE
+       GROUP BY p.program_id ORDER BY p.program_name`
+    );
+
+    const totalLecturers = allPrograms.reduce((sum, p) => sum + (p.lecturer_count || 0), 0);
+    const programBreakdown = allPrograms.map(p => ({
+      programCode: p.program_code,
+      programName: p.program_name,
+      count: 0,
+      lecturerCount: p.lecturer_count || 0,
+      avgTotalScore: 0,
+      avgAcademic: 0,
+      avgBehavior: 0,
+      noKpiData: true
+    }));
+
+    // Start building cache in background (don't await)
+    buildKpiCache(evaluateid).catch(err => {
+      console.error('[KpiCache] Background build error:', err.message);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        evaluateId: evaluateid,
+        totalLecturers,
+        programBreakdown,
+        cached: false,
+        complete: false,
+        message: 'KPI data is being loaded from MFU API. Refresh in 30-60 seconds for full data.'
+      }
+    });
+  } catch (error) {
+    console.error('[KpiCache] Program overview error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // GET /api/admin/kpi/cached?evaluateid=9&program_code=ACC
 // Serves cached KPI data with program enrichment. Blazing fast after first load.
@@ -1748,9 +1929,45 @@ app.get('/api/admin/kpi/cached', verifyToken, requireAdmin, async (req, res) => 
     // Check cache
     let cached = kpiServerCache.get(evaluateid);
     if (!cached) {
-      // Build cache on first request
-      const result = await buildKpiCache(evaluateid);
-      cached = kpiServerCache.get(evaluateid);
+      // Build cache on first request — but with a 120s safety timeout
+      try {
+        const buildPromise = buildKpiCache(evaluateid);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Cache build timeout')), 120000)
+        );
+        await Promise.race([buildPromise, timeoutPromise]);
+        cached = kpiServerCache.get(evaluateid);
+      } catch (timeoutErr) {
+        console.warn('[KpiCache] Build timed out, returning DB-only data');
+        // Fall back to program overview
+        const [allPrograms] = await pool.query(
+          `SELECT p.program_code, p.program_name, COUNT(lp.staff_code) as lecturer_count
+           FROM programs p LEFT JOIN lecturer_profiles lp ON p.program_id = lp.program_id
+           WHERE p.is_active = TRUE
+           GROUP BY p.program_id ORDER BY p.program_name`
+        );
+        const totalLecturers = allPrograms.reduce((sum, p) => sum + (p.lecturer_count || 0), 0);
+        const programBreakdown = allPrograms.map(p => ({
+          programCode: p.program_code,
+          programName: p.program_name,
+          count: 0,
+          lecturerCount: p.lecturer_count || 0,
+          avgTotalScore: 0, avgAcademic: 0, avgBehavior: 0,
+          noKpiData: true
+        }));
+        return res.json({
+          success: true,
+          data: {
+            evaluateId: evaluateid,
+            totalLecturers,
+            programBreakdown,
+            lecturers: [],
+            cached: false,
+            complete: false,
+            message: 'KPI data is still loading. Please refresh in 30 seconds.'
+          }
+        });
+      }
       if (!cached) {
         return res.status(500).json({ success: false, message: 'Failed to build KPI cache' });
       }
@@ -1773,7 +1990,8 @@ app.get('/api/admin/kpi/cached', verifyToken, requireAdmin, async (req, res) => 
         programBreakdown,
         lecturers: kpiData,
         cacheAge: Math.round((Date.now() - cached.timestamp) / 1000) + 's',
-        cached: true
+        cached: true,
+        complete: true
       }
     });
   } catch (error) {
@@ -1788,12 +2006,18 @@ app.post('/api/admin/kpi/cache/refresh', verifyToken, requireAdmin, async (req, 
   try {
     const { evaluateid = 9 } = req.query;
     kpiServerCache.clear(evaluateid);
-    const result = await buildKpiCache(evaluateid);
+    
+    // Start cache build but don't wait for it to complete (return immediately)
+    buildKpiCache(evaluateid).then(result => {
+      console.log(`[KpiCache] Background refresh complete: ${result.kpiData.length} lecturers, ${result.programBreakdown.length} programs`);
+    }).catch(err => {
+      console.error('[KpiCache] Background refresh error:', err.message);
+    });
+
     res.json({
       success: true,
-      message: `Cache refreshed for evaluateId=${evaluateid}`,
-      lecturerCount: result.kpiData.length,
-      programCount: result.programBreakdown.length
+      message: `Cache refresh started for evaluateId=${evaluateid}. Data will be available in 30-60 seconds.`,
+      refreshing: true
     });
   } catch (error) {
     console.error('[KpiCache] Refresh error:', error);
@@ -1809,6 +2033,275 @@ app.get('/api/admin/kpi/cache/status', verifyToken, requireAdmin, async (req, re
     cache: kpiServerCache.getStatus(),
     ttlHours: kpiServerCache.TTL / (60 * 60 * 1000)
   });
+});
+
+// ═══════════════════════════════════════════════════════════
+// Executive Dashboard Overview Endpoint
+// Returns comprehensive aggregated data for the executive dashboard
+// Activity data comes from E-Port API (cached), scores from KPI cache
+// GET /api/admin/executive/overview?evaluateid=9&program_code=ACC
+// ═══════════════════════════════════════════════════════════
+app.get('/api/admin/executive/overview', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { evaluateid = 9, program_code } = req.query;
+
+    // 1. Get basic counts from DB (only tables that exist)
+    const [[dbCounts]] = await pool.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM lecturer_profiles) as total_lecturers,
+        (SELECT COUNT(*) FROM programs WHERE is_active = TRUE) as total_programs,
+        (SELECT COUNT(*) FROM lecturer_publications) as db_publications,
+        (SELECT COUNT(*) FROM lecturer_research_areas) as db_research_areas,
+        (SELECT COUNT(*) FROM lecturer_education) as db_education
+    `);
+
+    // 2. Get program list with lecturer counts
+    const [programList] = await pool.query(`
+      SELECT p.program_code, p.program_name, COUNT(lp.staff_code) as lecturer_count
+      FROM programs p
+      LEFT JOIN lecturer_profiles lp ON p.program_id = lp.program_id
+      WHERE p.is_active = TRUE
+      ${program_code ? 'AND p.program_code = ?' : ''}
+      GROUP BY p.program_id ORDER BY p.program_name
+    `, program_code ? [program_code] : []);
+
+    // 3. Get KPI + activity data from cache
+    const cached = kpiServerCache.get(evaluateid);
+    let kpiSummary = null;
+    let programKpiBreakdown = [];
+    let topPerformers = [];
+    let bottomPerformers = [];
+    let trackDistribution = [];
+    let domainAverages = { domain1: 0, domain2: 0, domain3: 0, domain4: 0, domain5: 0 };
+
+    // Activity totals from E-Port API cache
+    let activityTotals = {
+      selfDevelopment: 0, publications: 0, researchStudies: 0,
+      academicService: 0, teachingUG: 0, teachingGrad: 0, committees: 0,
+      totalLecturers: dbCounts.total_lecturers,
+      totalPrograms: dbCounts.total_programs
+    };
+    let activityByProgram = [];
+    let hasActivityData = false;
+    let domainByProgram = [];
+
+    if (cached && cached.kpiData && cached.kpiData.length > 0) {
+      let lecturers = cached.kpiData;
+      const activityMap = cached.activityMap || new Map();
+      hasActivityData = activityMap.size > 0;
+
+      // Filter by program if specified
+      if (program_code) {
+        lecturers = lecturers.filter(l => l.programCode === program_code);
+      }
+
+      const count = lecturers.length;
+      if (count > 0) {
+        const avgTotal = lecturers.reduce((s, l) => s + l.overallPerformance.totalScore, 0) / count;
+        const avgAcademic = lecturers.reduce((s, l) => s + l.overallPerformance.academicPerformance, 0) / count;
+        const avgBehavior = lecturers.reduce((s, l) => s + l.overallPerformance.behavior, 0) / count;
+
+        kpiSummary = {
+          lecturersWithKpi: count,
+          avgTotalScore: avgTotal,
+          avgAcademic: avgAcademic,
+          avgBehavior: avgBehavior,
+          performanceLevels: {
+            Excellent: lecturers.filter(l => l.performanceLevel === 'Excellent').length,
+            Good: lecturers.filter(l => l.performanceLevel === 'Good').length,
+            Moderate: lecturers.filter(l => l.performanceLevel === 'Moderate').length,
+            Poor: lecturers.filter(l => l.performanceLevel === 'Poor').length,
+            'Very Poor': lecturers.filter(l => l.performanceLevel === 'Very Poor').length
+          }
+        };
+
+        // Domain averages
+        domainAverages = {
+          domain1: lecturers.reduce((s, l) => s + (l.domainScores?.domain1 || 0), 0) / count,
+          domain2: lecturers.reduce((s, l) => s + (l.domainScores?.domain2 || 0), 0) / count,
+          domain3: lecturers.reduce((s, l) => s + (l.domainScores?.domain3 || 0), 0) / count,
+          domain4: lecturers.reduce((s, l) => s + (l.domainScores?.domain4 || 0), 0) / count,
+          domain5: lecturers.reduce((s, l) => s + (l.domainScores?.domain5 || 0), 0) / count
+        };
+
+        // Track distribution
+        const trackMap = {};
+        lecturers.forEach(l => {
+          const track = l.domainScoreName || 'Teaching';
+          if (!trackMap[track]) trackMap[track] = { count: 0, totalScore: 0 };
+          trackMap[track].count++;
+          trackMap[track].totalScore += l.overallPerformance.totalScore;
+        });
+        trackDistribution = Object.entries(trackMap).map(([name, info]) => ({
+          name, count: info.count, avgScore: info.totalScore / info.count
+        })).sort((a, b) => b.count - a.count);
+
+        // Top 5 / Bottom 5 performers
+        const sorted = [...lecturers].sort((a, b) => b.overallPerformance.totalScore - a.overallPerformance.totalScore);
+        topPerformers = sorted.slice(0, 5).map(l => ({
+          staffCode: l.staffCode, staffName: l.staffName,
+          programCode: l.programCode, totalScore: l.overallPerformance.totalScore,
+          performanceLevel: l.performanceLevel
+        }));
+        bottomPerformers = sorted.slice(-5).reverse().map(l => ({
+          staffCode: l.staffCode, staffName: l.staffName,
+          programCode: l.programCode, totalScore: l.overallPerformance.totalScore,
+          performanceLevel: l.performanceLevel
+        }));
+      }
+
+      programKpiBreakdown = cached.programBreakdown || [];
+
+      // Compute 5 domain score averages per program
+      const domainProgMap = {};
+      const allKpiLecturers = program_code 
+        ? cached.kpiData.filter(l => l.programCode === program_code) 
+        : cached.kpiData;
+      
+      allKpiLecturers.forEach(l => {
+        const pCode = l.programCode || 'N/A';
+        if (!domainProgMap[pCode]) {
+          domainProgMap[pCode] = { count: 0, d1: 0, d2: 0, d3: 0, d4: 0, d5: 0 };
+        }
+        domainProgMap[pCode].count++;
+        domainProgMap[pCode].d1 += l.domainScores?.domain1 || 0;
+        domainProgMap[pCode].d2 += l.domainScores?.domain2 || 0;
+        domainProgMap[pCode].d3 += l.domainScores?.domain3 || 0;
+        domainProgMap[pCode].d4 += l.domainScores?.domain4 || 0;
+        domainProgMap[pCode].d5 += l.domainScores?.domain5 || 0;
+      });
+
+      const domainByProgram = Object.entries(domainProgMap)
+        .filter(([code]) => code !== 'N/A')
+        .map(([code, info]) => {
+          const progInfo = programKpiBreakdown.find(p => p.programCode === code);
+          return {
+            programCode: code,
+            programName: progInfo?.programName || code,
+            lecturerCount: info.count,
+            domains: {
+              teaching: info.count > 0 ? +(info.d1 / info.count).toFixed(1) : 0,
+              research: info.count > 0 ? +(info.d2 / info.count).toFixed(1) : 0,
+              academicService: info.count > 0 ? +(info.d3 / info.count).toFixed(1) : 0,
+              administration: info.count > 0 ? +(info.d4 / info.count).toFixed(1) : 0,
+              artsCulture: info.count > 0 ? +(info.d5 / info.count).toFixed(1) : 0
+            }
+          };
+        }).sort((a, b) => a.programCode.localeCompare(b.programCode));
+
+      // Aggregate activity data from cache (from E-Port API)
+      if (hasActivityData) {
+        // Build per-program activity aggregation
+        const progActivityMap = {};
+        
+        // Iterate KPI lecturers and match with activity data
+        const allLecturers = program_code 
+          ? cached.kpiData.filter(l => l.programCode === program_code) 
+          : cached.kpiData;
+        
+        allLecturers.forEach(l => {
+          const acts = activityMap.get(l.staffCode);
+          if (!acts) return;
+          
+          const pCode = l.programCode || 'N/A';
+          if (!progActivityMap[pCode]) {
+            progActivityMap[pCode] = {
+              selfDevelopment: 0, publications: 0, researchStudies: 0,
+              academicService: 0, teachingUG: 0, teachingGrad: 0, committees: 0
+            };
+          }
+          progActivityMap[pCode].selfDevelopment += acts.selfDevelopment || 0;
+          progActivityMap[pCode].publications += acts.publications || 0;
+          progActivityMap[pCode].researchStudies += acts.researchStudies || 0;
+          progActivityMap[pCode].academicService += acts.academicService || 0;
+          progActivityMap[pCode].teachingUG += acts.teachingUG || 0;
+          progActivityMap[pCode].teachingGrad += acts.teachingGrad || 0;
+          progActivityMap[pCode].committees += acts.committees || 0;
+
+          // Sum totals
+          activityTotals.selfDevelopment += acts.selfDevelopment || 0;
+          activityTotals.publications += acts.publications || 0;
+          activityTotals.researchStudies += acts.researchStudies || 0;
+          activityTotals.academicService += acts.academicService || 0;
+          activityTotals.teachingUG += acts.teachingUG || 0;
+          activityTotals.teachingGrad += acts.teachingGrad || 0;
+          activityTotals.committees += acts.committees || 0;
+        });
+
+        // Build activity by program rows
+        activityByProgram = programList.map(p => {
+          const acts = progActivityMap[p.program_code] || {};
+          const kpi = programKpiBreakdown.find(k => k.programCode === p.program_code);
+          return {
+            program_code: p.program_code,
+            program_name: p.program_name,
+            lecturer_count: p.lecturer_count,
+            total_publications: acts.publications || 0,
+            total_research_studies: acts.researchStudies || 0,
+            total_self_development: acts.selfDevelopment || 0,
+            total_academic_service: acts.academicService || 0,
+            total_teaching: (acts.teachingUG || 0) + (acts.teachingGrad || 0),
+            total_committees: acts.committees || 0,
+            kpiAvg: kpi?.avgTotalScore || 0
+          };
+        });
+      } else {
+        // Activity data not yet cached — return program list without activity counts
+        activityByProgram = programList.map(p => {
+          const kpi = programKpiBreakdown.find(k => k.programCode === p.program_code);
+          return {
+            program_code: p.program_code,
+            program_name: p.program_name,
+            lecturer_count: p.lecturer_count,
+            total_publications: 0, total_research_studies: 0,
+            total_self_development: 0, total_academic_service: 0,
+            total_teaching: 0, total_committees: 0,
+            kpiAvg: kpi?.avgTotalScore || 0
+          };
+        });
+      }
+    } else {
+      // No cache — trigger background build
+      buildKpiCache(evaluateid).catch(err => console.error('[Executive] Cache build error:', err.message));
+      // Still return program structure
+      activityByProgram = programList.map(p => ({
+        program_code: p.program_code,
+        program_name: p.program_name,
+        lecturer_count: p.lecturer_count,
+        total_publications: 0, total_research_studies: 0,
+        total_self_development: 0, total_academic_service: 0,
+        total_teaching: 0, total_committees: 0,
+        kpiAvg: 0
+      }));
+    }
+
+    res.json({
+      success: true,
+      data: {
+        activityTotals,
+        activityByProgram,
+        hasActivityData,
+
+        // KPI summary (from server cache)
+        kpiSummary,
+        domainAverages,
+        domainByProgram: domainByProgram || [],
+        trackDistribution,
+        programKpiBreakdown: program_code 
+          ? programKpiBreakdown.filter(p => p.programCode === program_code) 
+          : programKpiBreakdown,
+        topPerformers,
+        bottomPerformers,
+
+        // Cache status
+        cacheAvailable: !!cached,
+        cacheAge: cached ? Math.round((Date.now() - cached.timestamp) / 1000) : null
+      }
+    });
+  } catch (error) {
+    console.error('[Executive Overview] Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 // Aggregate KPI endpoint (Admin only)

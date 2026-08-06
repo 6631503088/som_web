@@ -150,7 +150,7 @@ export const useKpiCache = () => {
   }
 
   // Fetch lecturers from backend (with program info)
-  const fetchLecturersFromBackend = async (firebaseToken: string): Promise<{staffCode: string, staffName: string, program?: string, programId?: number}[]> => {
+  const fetchLecturersFromBackend = async (firebaseToken: string): Promise<{staffCode: string, staffName: string, program?: string, programCode?: string, programId?: number}[]> => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/admin/lecturers?limit=500`, {
         method: 'GET',
@@ -167,6 +167,7 @@ export const useKpiCache = () => {
             staffCode: l.staff_code,
             staffName: l.staff_name,
             program: l.program || undefined,
+            programCode: l.program_code || undefined,
             programId: l.program_id || undefined
           }))
         }
@@ -382,7 +383,8 @@ export const useKpiCache = () => {
         // Build lecturer -> program lookup
         const lecturerProgramMap = new Map<string, { program?: string, programCode?: string, programId?: number }>()
         lecturers.forEach(l => {
-          const programCode = l.programId ? programMap.get(l.programId) : undefined
+          // Use programCode directly from backend (preferred) or fall back to programMap lookup
+          const programCode = l.programCode || (l.programId ? programMap.get(l.programId) : undefined)
           lecturerProgramMap.set(l.staffCode, {
             program: l.program,
             programCode: programCode,

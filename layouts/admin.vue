@@ -18,6 +18,15 @@
       <!-- Navigation Menu -->
       <nav class="flex-1 px-4 py-4 overflow-y-auto">
         <ul class="space-y-0.5">
+          <!-- Executive Dashboard - DISABLED per stakeholder request (remove v-if="false" to re-enable) -->
+          <li v-if="false">
+            <NuxtLink to="/admin/executive-dashboard" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path === '/admin/executive-dashboard' }">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+              </svg>
+              Executive Dashboard
+            </NuxtLink>
+          </li>
           <li>
             <NuxtLink to="/admin/kpi" class="flex items-center px-4 py-3 text-white hover:bg-[#035e80] rounded-md transition-colors" :class="{ 'bg-[#035475]': $route.path.startsWith('/admin/kpi') }">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -144,6 +153,20 @@
       <!-- Mobile Navigation Menu -->
       <nav class="flex-1 px-4 py-6">
         <ul class="space-y-1">
+          <!-- Executive Dashboard - DISABLED per stakeholder request (remove v-if="false" to re-enable) -->
+          <li v-if="false">
+            <NuxtLink
+              to="/admin/executive-dashboard"
+              @click="showSidebar = false"
+              class="flex items-center px-3 py-2.5 text-white/90 hover:text-white hover:bg-[#035e80]/50 rounded-lg transition-all duration-200"
+              :class="{ 'bg-[#035475]/60 text-white shadow-sm': $route.path === '/admin/executive-dashboard' }"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+              </svg>
+              Executive Dashboard
+            </NuxtLink>
+          </li>
           <li>
             <NuxtLink
               to="/admin/kpi"
